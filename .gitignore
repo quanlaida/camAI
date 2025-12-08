@@ -1,0 +1,98 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+detections.db
+
+# Captured images (generated data)
+captured_images/
+**/captured_images/
+**/captured_images/**/*
+
+# Model files (large files - uncomment if you don't want to track)
+# *.onnx
+# models/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Flask instance folder
+instance/
+
+# Coverage reports
+.coverage
+htmlcov/
+.pytest_cache/
+.coverage.*
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Node modules (if any frontend build tools)
+node_modules/
+
+# Video test files
+videotest/
+**/videotest/
+
+# Service files (system-specific)
+*.service
+
+# Shell scripts (optional - comment out if you want to track them)
+# *.sh
+
+# Documentation backups
+*.md.bak
+
+# Compiled files
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
