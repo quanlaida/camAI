@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Detection Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v={{ version }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Detection Dashboard</h1>
+            <nav class="nav-tabs">
+                <button class="tab-btn active" data-tab="detections">Detections</button>
+                <button class="tab-btn" data-tab="clients">Clients</button>
+            </nav>
+            <div class="stats">
+                <div class="stat-card">
+                    <h3>Total Detections</h3>
+                    <div class="stat-value" id="total-detections">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Recent (24h)</h3>
+                    <div class="stat-value" id="recent-detections">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Clients</h3>
+                    <div class="stat-value" id="active-clients">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Classes</h3>
+                    <div class="stat-value" id="active-classes">0</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="filter-controls" id="detections-controls">
+                <label for="client-filter">Filter by Client:</label>
+                <select id="client-filter">
+                    <option value="">All Clients</option>
+                </select>
+                <label for="class-filter">Filter by Class:</label>
+                <select id="class-filter">
+                    <option value="">All Classes</option>
+                </select>
+                <label for="limit-select">Show:</label>
+                <select id="limit-select">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <button id="refresh-btn">Refresh</button>
+            </div>
+            <div class="client-controls" id="clients-controls" style="display: none;">
+                <button id="add-client-btn" class="btn-primary">Add New Client</button>
+                <button id="refresh-clients-btn">Refresh Clients</button>
+            </div>
+            <div class="alert-controls" id="alert-controls" style="display: flex;">
+                <label for="alert-email-input">Email cảnh báo:</label>
+                <input type="email" id="alert-email-input" placeholder="your-email@gmail.com" style="padding: 8px 12px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; width: 250px;">
+                <button id="save-email-btn" class="btn-primary">Lưu Email</button>
+                <button id="test-email-btn" class="btn-secondary" style="margin-left: 8px;">Test Email</button>
+                <span id="email-status" style="margin-left: 10px; font-weight: 600; color: #2ecc71;"></span>
+                <label style="margin-left: 15px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="email-enabled-checkbox" style="width: 18px; height: 18px; cursor: pointer;">
+                    <span>Bật cảnh báo email</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Detections Tab Content -->
+        <div id="detections-tab" class="tab-content">
+            <div class="detections-split-layout">
+                <!-- Left: Video Stream -->
+                <div class="detections-stream-panel">
+                    <div class="stream-panel-header">
+                        <h3>Live Video Stream</h3>
+                        <select id="detection-stream-client-select" class="stream-select">
+                            <option value="">Chọn client...</option>
+                        </select>
+                    </div>
+                    <div id="detection-stream-container" class="detection-stream-container">
+                        <div class="stream-placeholder">
+                            <p>Chọn client để xem live stream</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Detections List -->
+                <div class="detections-list-panel">
+                    <div class="detections-list-header">
+                        <h3>Danh sách Detections</h3>
+                        <button id="detection-refresh-btn" class="btn-small">Refresh</button>
+                    </div>
+                    <div class="detections-container">
+                        <table id="detections-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Client</th>
+                                    <th>Class</th>
+                                    <th>Confidence</th>
+                                    <th>Image</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detections-body">
+                                <!-- Detection rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination">
+                        <button id="prev-page" disabled>Previous</button>
+                        <span id="page-info">Page 1</span>
+                        <button id="next-page">Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clients Tab Content -->
+        <div id="clients-tab" class="tab-content" style="display: none;">
+            <div class="detections-container">
+                <table id="clients-table">
+                    <thead>
+                        <tr>
+                            <th>Serial Number</th>
+                            <th>Name</th>
+                            <th>Location</th>
+                            <th>Detection</th>
+                            <th>Online Status</th>
+                            <th>Detections</th>
+                            <th>Last Seen</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clients-body">
+                        <!-- Client rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detection Detail Modal -->
+    <div id="detail-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="modal-content">
+                <!-- Detection details will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Client Detail Modal -->
+    <div id="client-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="client-modal-close">&times;</span>
+            <div id="client-modal-content">
+                <!-- Client form will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="script.js?v={{ version }}"></script>
+</body>
+</html>
