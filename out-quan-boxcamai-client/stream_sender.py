@@ -47,8 +47,8 @@ def send_video_frame(frame):
             except:
                 pass
         
-        # Resize frame để giảm bandwidth
-        resized_frame = cv2.resize(frame, (640, 480))
+        # Resize frame để giảm bandwidth - Tối ưu: dùng INTER_LINEAR (nhanh hơn)
+        resized_frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_LINEAR)
         video_stream_queue.put_nowait(resized_frame.copy())
     except Exception as e:
         # Ignore errors để không block main thread
@@ -57,6 +57,11 @@ def send_video_frame(frame):
 def send_processed_frame(frame):
     """Thêm processed frame (có detection boxes) vào queue để gửi về server"""
     try:
+        # Validate frame
+        if frame is None or frame.size == 0:
+            print("⚠️ send_processed_frame: Invalid frame (None or empty)")
+            return
+        
         # Frame skipping: Nếu queue đầy, bỏ frame cũ, giữ frame mới nhất
         if processed_stream_queue.full():
             try:
@@ -64,12 +69,14 @@ def send_processed_frame(frame):
             except:
                 pass
         
-        # Resize frame để giảm bandwidth
-        resized_frame = cv2.resize(frame, (640, 480))
+        # Resize frame để giảm bandwidth - Tối ưu: dùng INTER_LINEAR (nhanh hơn)
+        resized_frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_LINEAR)
         processed_stream_queue.put_nowait(resized_frame.copy())
     except Exception as e:
-        # Ignore errors để không block main thread
-        pass
+        # Log error để debug - không ignore im lặng
+        print(f"⚠️ Error in send_processed_frame: {e}")
+        import traceback
+        traceback.print_exc()
 
 def stream_worker():
     """Worker thread gửi raw frames về server"""
@@ -100,10 +107,11 @@ def stream_worker():
                 continue
             
             # Encode frame thành JPEG với quality tối ưu cho mượt mà
+            # Tối ưu: Giảm quality xuống 60 để tăng tốc encoding (vẫn đủ nhìn cho stream)
             ret, buffer = cv2.imencode('.jpg', frame, [
-                cv2.IMWRITE_JPEG_QUALITY, 70,  # Tăng lại lên 70 cho chất lượng tốt hơn
+                cv2.IMWRITE_JPEG_QUALITY, 60,  # Giảm từ 70 xuống 60 để tăng tốc
                 cv2.IMWRITE_JPEG_OPTIMIZE, 1,  # Tối ưu kích thước file
-                cv2.IMWRITE_JPEG_PROGRESSIVE, 1  # Progressive JPEG cho load nhanh hơn
+                cv2.IMWRITE_JPEG_PROGRESSIVE, 0  # Tắt progressive để encode nhanh hơn
             ])
             if not ret:
                 continue
@@ -180,10 +188,11 @@ def processed_stream_worker():
                 continue
             
             # Encode frame thành JPEG với quality tối ưu cho mượt mà
+            # Tối ưu: Giảm quality xuống 65 để tăng tốc encoding (vẫn đủ nhìn cho stream)
             ret, buffer = cv2.imencode('.jpg', frame, [
-                cv2.IMWRITE_JPEG_QUALITY, 75,  # Giữ 75 cho processed stream (có detection boxes)
+                cv2.IMWRITE_JPEG_QUALITY, 65,  # Giảm từ 75 xuống 65 để tăng tốc
                 cv2.IMWRITE_JPEG_OPTIMIZE, 1,
-                cv2.IMWRITE_JPEG_PROGRESSIVE, 1  # Progressive JPEG cho load nhanh hơn
+                cv2.IMWRITE_JPEG_PROGRESSIVE, 0  # Tắt progressive để encode nhanh hơn
             ])
             if not ret:
                 continue

@@ -18,6 +18,7 @@ class Client(Base):
     is_detect_enabled = Column(Boolean, default=True, nullable=False)
     ip_address = Column(String(45), nullable=True)  # IPv4 or IPv6
     show_roi_overlay = Column(Boolean, default=True, nullable=False)  # Hiển thị ROI trên stream
+    rtsp_subtype = Column(Integer, default=1, nullable=False)  # RTSP subtype: 0=chất lượng cao, 1=chất lượng thấp
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
    # ✅ vùng nhận diện (Region of Interest)
@@ -96,6 +97,11 @@ def init_database():
             connection.execute(text("ALTER TABLE clients ADD COLUMN show_roi_overlay BOOLEAN DEFAULT 1"))
             connection.commit()
             print("✅ Added 'show_roi_overlay' column to 'clients' table (default TRUE).")
+    if 'rtsp_subtype' not in columns:
+        with engine.connect() as connection:
+            connection.execute(text("ALTER TABLE clients ADD COLUMN rtsp_subtype INTEGER DEFAULT 1"))
+            connection.commit()
+            print("✅ Added 'rtsp_subtype' column to 'clients' table (default 1 = chất lượng thấp).")
 
     # Create images directory
     os.makedirs(SERVER_IMAGES_DIR, exist_ok=True)

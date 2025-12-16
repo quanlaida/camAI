@@ -7,6 +7,7 @@ import json
 import os
 from flask_cors import CORS
 from flask import Flask, request, jsonify, send_file, render_template
+from werkzeug.exceptions import ClientDisconnected
 import sys
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -36,6 +37,86 @@ processed_video_frames = {}
 import threading
 video_frames_lock = threading.Lock()
 processed_frames_lock = threading.Lock()
+
+# Tối ưu: Cache client info để tránh query database mỗi request
+# Format: {serial_number or client_name: {'id': client_id, 'last_updated': datetime, 'timestamp': float, 'needs_db_update': bool}}
+# TTL Cache: Thêm timestamp để tự động expire cache sau TTL
+client_cache = {}
+client_cache_lock = threading.Lock()
+CACHE_TTL = 5  # Cache TTL: 5 giây (tự động refresh sau 5 giây)
+client_update_queue = []  # Queue để batch update database
+client_update_lock = threading.Lock()
+
+def _batch_update_clients_async():
+    """Update clients trong database async (background thread)"""
+    if not client_update_queue:
+        return
+    
+    # Copy queue và clear
+    with client_update_lock:
+        updates = client_update_queue.copy()
+        client_update_queue.clear()
+    
+    # Update database trong background
+    def update_db():
+        try:
+            session = Session()
+            try:
+                # Group by client_id để update một lần
+                client_ids = list(set([u['client_id'] for u in updates]))
+                latest_timestamps = {}
+                for u in updates:
+                    cid = u['client_id']
+                    if cid not in latest_timestamps or u['timestamp'] > latest_timestamps[cid]:
+                        latest_timestamps[cid] = u['timestamp']
+                
+                # Batch update
+                for client_id, timestamp in latest_timestamps.items():
+                    client = session.query(Client).filter(Client.id == client_id).first()
+                    if client:
+                        client.updated_at = timestamp
+                
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                print(f"Error in batch update clients: {e}")
+            finally:
+                session.close()
+        except Exception as e:
+            print(f"Error in async client update: {e}")
+    
+    # Chạy trong background thread
+    thread = threading.Thread(target=update_db, daemon=True)
+    thread.start()
+
+# Background thread để batch update định kỳ (giảm từ 2 giây xuống 0.5 giây để giảm delay)
+def _periodic_client_update():
+    """Periodic update clients trong database"""
+    import time
+    while True:
+        time.sleep(0.5)  # Update mỗi 0.5 giây (giảm delay từ 2 giây)
+        if client_update_queue:
+            _batch_update_clients_async()
+
+# Start background thread
+_update_thread = threading.Thread(target=_periodic_client_update, daemon=True)
+_update_thread.start()
+
+def _invalidate_client_cache(serial_number=None, client_name=None, client_id=None):
+    """Invalidate client cache khi client được tạo/cập nhật/xóa"""
+    with client_cache_lock:
+        if serial_number and serial_number in client_cache:
+            del client_cache[serial_number]
+        if client_name and client_name in client_cache:
+            del client_cache[client_name]
+        # Nếu có client_id, xóa tất cả entries có client_id đó
+        if client_id:
+            keys_to_remove = []
+            for key, value in client_cache.items():
+                if value.get('id') == client_id:
+                    keys_to_remove.append(key)
+            for key in keys_to_remove:
+                del client_cache[key]
 
 
 @app.route('/')
@@ -631,9 +712,8 @@ def get_image(filename):
 
 @app.route('/api/video/frame', methods=['POST'])
 def receive_video_frame():
-    """Nhận video frame từ Pi client (raw hoặc processed)"""
+    """Nhận video frame từ Pi client (raw hoặc processed) - Tối ưu với cache"""
     # Bỏ log để giảm overhead, chỉ log khi có lỗi
-    session = None
     try:
         # Lấy client info từ request - ưu tiên Serial number, fallback về client_name (backward compatibility)
         serial_number = request.form.get('serial_number')
@@ -649,36 +729,72 @@ def receive_video_frame():
         
         frame_file = request.files['frame']
         
-        # Tìm client trong database và cập nhật updated_at để track online status
-        session = Session()
-        try:
-            if serial_number:
-                # Tìm bằng Serial number (mới)
-                client = session.query(Client).filter(Client.serial_number == serial_number).first()
-            elif client_name:
-                # Tìm bằng name (backward compatibility)
-                client = session.query(Client).filter(Client.name == client_name).first()
-            else:
-                client = None
+        # Tối ưu: Tìm client trong cache trước (tránh query database mỗi request)
+        # TTL Cache: Check cache expiration trước khi dùng
+        cache_key = serial_number if serial_number else client_name
+        client_id = None
+        import time
+        
+        with client_cache_lock:
+            if cache_key in client_cache:
+                cache_entry = client_cache[cache_key]
+                # Check TTL: Nếu cache expired, xóa và query lại từ DB
+                current_time = time.time()
+                if 'timestamp' in cache_entry and (current_time - cache_entry['timestamp']) < CACHE_TTL:
+                    # Cache còn valid
+                    client_id = cache_entry['id']
+                    cache_entry['needs_db_update'] = True
+                    cache_entry['last_updated'] = datetime.now()
+                    cache_entry['timestamp'] = current_time  # Refresh timestamp
+                else:
+                    # Cache expired, xóa và query lại
+                    del client_cache[cache_key]
+                    cache_entry = None
             
-            if not client:
-                session.close()
-                return jsonify({'error': 'Client not found'}), 404
-            
-            # Cập nhật updated_at để track online status khi nhận video frame
-            client.updated_at = datetime.now()
-            session.commit()
-            client_id = client.id
-        finally:
-            session.close()
-            session = None
+            if cache_key not in client_cache:
+                # Cache miss - query database
+                session = Session()
+                try:
+                    if serial_number:
+                        client = session.query(Client).filter(Client.serial_number == serial_number).first()
+                    elif client_name:
+                        client = session.query(Client).filter(Client.name == client_name).first()
+                    else:
+                        client = None
+                    
+                    if not client:
+                        session.close()
+                        return jsonify({'error': 'Client not found'}), 404
+                    
+                    client_id = client.id
+                    # Thêm vào cache với timestamp cho TTL
+                    client_cache[cache_key] = {
+                        'id': client_id,
+                        'last_updated': datetime.now(),
+                        'timestamp': time.time(),  # Thêm timestamp cho TTL check
+                        'needs_db_update': True
+                    }
+                finally:
+                    session.close()
+        
+        # Tối ưu: Thêm vào queue để update database async (không block request)
+        if client_id:
+            with client_update_lock:
+                client_update_queue.append({
+                    'client_id': client_id,
+                    'timestamp': datetime.now()
+                })
+                # Trigger update nếu queue đầy hoặc đã lâu
+                if len(client_update_queue) >= 10:
+                    _batch_update_clients_async()
         
         # Lưu frame vào memory
         frame_bytes = frame_file.read()
         
-        # Lưu frame vào đúng dictionary dựa trên frame_type (tối ưu: không copy, dùng trực tiếp)
+        # Tối ưu: Lưu frame nhanh nhất có thể (giảm lock time)
         current_time = datetime.now()
         if frame_type == 'processed':
+            # Tối ưu: Chỉ lock khi cần, update nhanh
             with processed_frames_lock:
                 processed_video_frames[client_id] = {
                     'frame': frame_bytes,  # Giữ nguyên bytes, không copy
@@ -692,6 +808,17 @@ def receive_video_frame():
                 }
         
         return jsonify({'message': 'Frame received', 'frame_type': frame_type, 'client_id': client_id}), 200
+        
+    except ClientDisconnected:
+        # Client đã ngắt kết nối trước khi server đọc xong - không cần log error, chỉ bỏ qua
+        # Đảm bảo session được đóng nếu có
+        if session:
+            try:
+                session.close()
+            except:
+                pass
+        # Return 200 để không làm client retry
+        return jsonify({'message': 'Client disconnected'}), 200
         
     except Exception as e:
         import traceback
@@ -920,6 +1047,8 @@ def get_clients():
                 'is_detect_enabled': client.is_detect_enabled,
                 'ip_address': client.ip_address,
                 'show_roi_overlay': getattr(client, 'show_roi_overlay', True),
+                # Fallback về 0 nếu None để khớp mặc định UI (chất lượng cao)
+                'rtsp_subtype': getattr(client, 'rtsp_subtype', 0) if getattr(client, 'rtsp_subtype', None) is not None else 0,  # 0=chất lượng cao, 1=chất lượng thấp
                 'created_at': client.created_at.isoformat() if client.created_at else None,
                 'updated_at': client.updated_at.isoformat() if client.updated_at else None,
                 'client_detections': count
@@ -985,6 +1114,22 @@ def create_client():
         session.add(client)
         session.commit()
         client_id = client.id
+        session.close()
+        
+        # Tối ưu: Thêm vào cache ngay sau khi tạo
+        with client_cache_lock:
+            if client.serial_number:
+                client_cache[client.serial_number] = {
+                    'id': client_id,
+                    'last_updated': datetime.now(),
+                    'needs_db_update': False
+                }
+            if client.name:
+                client_cache[client.name] = {
+                    'id': client_id,
+                    'last_updated': datetime.now(),
+                    'needs_db_update': False
+                }
         
         if 'roi_regions' in data and data['roi_regions']:
             print(f"✅ Created client {client_id} with roi_regions: {data['roi_regions']}")
@@ -1031,7 +1176,9 @@ def get_client(client_id):
             "roi_x2": client.roi_x2,
             "roi_y2": client.roi_y2,
             "roi_regions": client.roi_regions,  # Multiple ROI regions
-            "ip_address": client.ip_address
+            "ip_address": client.ip_address,
+            # Nếu chưa set (None), fallback về 0 (chất lượng cao) để khớp mặc định UI
+            "rtsp_subtype": getattr(client, 'rtsp_subtype', 0) if getattr(client, 'rtsp_subtype', None) is not None else 0
         }
         return jsonify(result), 200
 
@@ -1124,7 +1271,9 @@ def get_client_by_serial(serial_number):
             "roi_x2": client.roi_x2,
             "roi_y2": client.roi_y2,
             "roi_regions": client.roi_regions,  # Multiple ROI regions
-            "ip_address": client.ip_address
+            "ip_address": client.ip_address,
+            # Fallback về 0 (chất lượng cao) nếu chưa có trong DB
+            "rtsp_subtype": getattr(client, 'rtsp_subtype', 0) if getattr(client, 'rtsp_subtype', None) is not None else 0
         }
         return jsonify(result), 200
 
@@ -1241,9 +1390,35 @@ def update_client(client_id):
                 print(f"✅ Updated roi_regions for client {client_id}: {data['roi_regions']}")
             else:
                 print(f"✅ Cleared roi_regions for client {client_id}")
+        if 'rtsp_subtype' in data:
+            rtsp_subtype = int(data['rtsp_subtype'])
+            if rtsp_subtype not in [0, 1]:
+                return jsonify({'error': 'rtsp_subtype must be 0 (chất lượng cao) or 1 (chất lượng thấp)'}), 400
+            client.rtsp_subtype = rtsp_subtype
+            print(f"✅ Updated rtsp_subtype for client {client_id}: {rtsp_subtype} ({'chất lượng cao' if rtsp_subtype == 0 else 'chất lượng thấp'})")
+
+        # Lưu old values để invalidate cache
+        old_serial = client.serial_number
+        old_name = client.name
 
         session.commit()
         print(f"✅ Client {client_id} updated successfully")
+        
+        # Tối ưu: Invalidate cache và update cache với giá trị mới
+        _invalidate_client_cache(serial_number=old_serial, client_name=old_name, client_id=client_id)
+        with client_cache_lock:
+            if client.serial_number:
+                client_cache[client.serial_number] = {
+                    'id': client_id,
+                    'last_updated': datetime.now(),
+                    'needs_db_update': False
+                }
+            if client.name:
+                client_cache[client.name] = {
+                    'id': client_id,
+                    'last_updated': datetime.now(),
+                    'needs_db_update': False
+                }
 
         return jsonify({'message': 'Client updated successfully'}), 200
 
@@ -1271,9 +1446,16 @@ def delete_client(client_id):
             session.close()
             return jsonify({'error': 'Client not found'}), 404
 
+        # Lưu thông tin để invalidate cache
+        old_serial = client.serial_number
+        old_name = client.name
+
         session.delete(client)
         session.commit()
         session.close()
+        
+        # Tối ưu: Invalidate cache khi xóa client
+        _invalidate_client_cache(serial_number=old_serial, client_name=old_name, client_id=client_id)
 
         return jsonify({'message': 'Client deleted successfully'}), 200
 

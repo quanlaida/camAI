@@ -888,26 +888,55 @@ async function loadClientForEdit(clientId) {
                     roiRegions = regions.map((roi, idx) => {
                         // Support both polygon format (points) and rectangle format (x1, y1, x2, y2)
                         if (roi.points && Array.isArray(roi.points)) {
-                            // New polygon format with name and color
+                            // Check if ROI is normalized (0-1)
+                            const is_normalized = roi._normalized || false;
+                            
+                            // Get reference size để scale từ normalized về canvas size
+                            const refWidth = roi._ref_width || (canvasBGImage && canvasBGImage.naturalWidth > 0 ? canvasBGImage.naturalWidth : roiCanvas.width);
+                            const refHeight = roi._ref_height || (canvasBGImage && canvasBGImage.naturalHeight > 0 ? canvasBGImage.naturalHeight : roiCanvas.height);
+                            
+                            // Scale points từ normalized về canvas size nếu đã normalize
+                            let displayPoints = roi.points;
+                            if (is_normalized) {
+                                displayPoints = roi.points.map(p => ({
+                                    x: p.x * refWidth,
+                                    y: p.y * refHeight
+                                }));
+                            }
+                            
                             return {
                                 id: roiIdCounter++,
                                 name: roi.name || `ROI ${idx + 1}`,
                                 color: roi.color || '#e74c3c',
                                 colorRgb: roi.colorRgb || [231, 76, 60],
-                                points: roi.points
+                                points: displayPoints  // Scale về canvas size để hiển thị
                             };
                         } else if (roi.x1 !== undefined && roi.x2 !== undefined) {
                             // Old rectangle format - convert to polygon (4 corners)
+                            // Check if normalized
+                            const is_normalized = roi._normalized || false;
+                            const refWidth = roi._ref_width || (canvasBGImage && canvasBGImage.naturalWidth > 0 ? canvasBGImage.naturalWidth : roiCanvas.width);
+                            const refHeight = roi._ref_height || (canvasBGImage && canvasBGImage.naturalHeight > 0 ? canvasBGImage.naturalHeight : roiCanvas.height);
+                            
+                            let x1 = roi.x1, y1 = roi.y1, x2 = roi.x2, y2 = roi.y2;
+                            if (is_normalized) {
+                                // Scale from normalized to canvas size
+                                x1 = x1 * refWidth;
+                                y1 = y1 * refHeight;
+                                x2 = x2 * refWidth;
+                                y2 = y2 * refHeight;
+                            }
+                            
                             return {
                                 id: roiIdCounter++,
                                 name: roi.name || `ROI ${idx + 1}`,
                                 color: roi.color || '#e74c3c',
                                 colorRgb: roi.colorRgb || [231, 76, 60],
                                 points: [
-                                    {x: roi.x1, y: roi.y1},
-                                    {x: roi.x2, y: roi.y1},
-                                    {x: roi.x2, y: roi.y2},
-                                    {x: roi.x1, y: roi.y2}
+                                    {x: x1, y: y1},
+                                    {x: x2, y: y1},
+                                    {x: x2, y: y2},
+                                    {x: x1, y: y2}
                                 ]
                             };
                         }
@@ -947,22 +976,41 @@ async function loadClientForEdit(clientId) {
 
 async function saveClient(clientId) {
     // Convert ROI regions to JSON string (polygon format)
+    // FIX: Normalize ROI coordinates (0-1) để không bị lệch khi resolution thay đổi
     let roiRegionsJson = null;
     if (roiRegions.length > 0) {
-        roiRegionsJson = JSON.stringify(roiRegions.map(roi => ({
-            name: roi.name || `ROI ${roiRegions.indexOf(roi) + 1}`,
-            color: roi.color || '#e74c3c',
-            colorRgb: roi.colorRgb || [231, 76, 60],
-            points: roi.points // Store polygon points
-        })));
+        // Get reference size: dùng image natural size nếu có, fallback về canvas size
+        const refWidth = (canvasBGImage && canvasBGImage.naturalWidth > 0) ? canvasBGImage.naturalWidth : roiCanvas.width;
+        const refHeight = (canvasBGImage && canvasBGImage.naturalHeight > 0) ? canvasBGImage.naturalHeight : roiCanvas.height;
+        
+        roiRegionsJson = JSON.stringify(roiRegions.map(roi => {
+            // Normalize points to 0-1 range dựa trên reference size
+            const normalizedPoints = roi.points.map(p => ({
+                x: p.x / refWidth,   // Normalize x (0-1)
+                y: p.y / refHeight   // Normalize y (0-1)
+            }));
+            
+            return {
+                name: roi.name || `ROI ${roiRegions.indexOf(roi) + 1}`,
+                color: roi.color || '#e74c3c',
+                colorRgb: roi.colorRgb || [231, 76, 60],
+                points: normalizedPoints,  // Normalized coordinates (0-1)
+                _normalized: true,  // Flag để biết đã normalize
+                _ref_width: refWidth,  // Lưu reference width để debug
+                _ref_height: refHeight  // Lưu reference height để debug
+            };
+        }));
     }
     
     // Backward compatibility: Set single ROI if only one ROI exists (calculate bounding box)
     let roi_x1 = null, roi_y1 = null, roi_x2 = null, roi_y2 = null;
     if (roiRegions.length === 1 && roiRegions[0].points) {
         const points = roiRegions[0].points;
-        const xs = points.map(p => p.x);
-        const ys = points.map(p => p.y);
+        const refWidth = (canvasBGImage && canvasBGImage.naturalWidth > 0) ? canvasBGImage.naturalWidth : roiCanvas.width;
+        const refHeight = (canvasBGImage && canvasBGImage.naturalHeight > 0) ? canvasBGImage.naturalHeight : roiCanvas.height;
+        // Normalize coordinates
+        const xs = points.map(p => p.x / refWidth);
+        const ys = points.map(p => p.y / refHeight);
         roi_x1 = Math.min(...xs);
         roi_y1 = Math.min(...ys);
         roi_x2 = Math.max(...xs);

@@ -14,18 +14,30 @@ SERVER_IMAGES_DIR = os.path.join(os.path.dirname(__file__),  'captured_images') 
 MAX_IMAGES_PER_DETECTION = 5  # Maximum images to keep per detection class
 
 # Detection Configuration
-DETECTION_THRESHOLD = 0.7
+DETECTION_THRESHOLD = 0.25
 IOU_THRESHOLD = 0.3
-FRAME_SKIP = 1
+DETECTION_COOLDOWN = 15.0
+IOU_COOLDOWN_THRESHOLD = 0.7
+# FRAME_SKIP: Bỏ qua N frames giữa các lần detection để tăng performance
+# Với input 640x640, nên tăng FRAME_SKIP để giảm tải cho Pi
+# FRAME_SKIP = 1: Detect mọi frame (chậm nhất, chính xác nhất)
+# FRAME_SKIP = 2: Detect mỗi 2 frames (nhanh hơn 2x)
+# FRAME_SKIP = 3: Detect mỗi 3 frames (nhanh hơn 3x)
+FRAME_SKIP = 1  # Tăng từ 2 lên 3 để giảm CPU usage (detect mỗi 3 frames)
 TIME_BETWEEN_SEND = 2.0
 
 # Objects to track (empty list means track all detected objects)
-TRACKED_OBJECTS = ['person', 'car', 'truck', 'bus', 'motorbike']  # ['person', 'car', 'truck', 'bus', 'motorbike']
+# TRACKED_OBJECTS = ['person', 'car', 'truck', 'bus', 'motorbike']  # COCO classes
+TRACKED_OBJECTS = ['person', 'drone', 'truck', 'motorcycle', 'kite', 'pole', 'fire', 'smoke']  # Custom model classes
 
 # Camera Configuration
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
-CAMERA_FRAMERATE = 30
+# CAMERA_FRAMERATE: Giảm framerate nếu Pi quá chậm với input 640x640
+# 30 fps: Mượt nhất nhưng nặng nhất
+# 20 fps: Cân bằng tốt
+# 15 fps: Nhẹ hơn, vẫn đủ mượt
+CAMERA_FRAMERATE = 15  # Giảm từ 20 xuống 15 để giảm tải CPU
 
 # Video File Configuration (set to None to use camera, or provide path to local video file)
 VIDEO_FILE_PATH = None # e.g., 'path/to/video.mp4'
@@ -39,11 +51,12 @@ RTSP_PORT = '554'
 # RTSP_URL không còn dùng nữa (đã build link động từ IP)
 # IP camera sẽ được lấy từ server hoặc config.RTSP_IP
 # Model Configuration
-MODEL_PATH = 'yolov5s.onnx'
-# MODEL_PATH = 'best.onnx'
-INPUT_W_SIZE = 320
-INPUT_H_SIZE = 320
-INPUT_SIZE = 320
+# MODEL_PATH = 'yolov5s.onnx'
+MODEL_PATH = 'best.onnx'  # Dùng model custom với 11 classes
+# Model best.onnx yêu cầu input size 640x640
+INPUT_W_SIZE = 640
+INPUT_H_SIZE = 640
+INPUT_SIZE = 640
 
 # Rate limiting configuration
 DETECTION_SEND_DELAY = 1  # Delay in seconds between sending detections to server
@@ -52,6 +65,7 @@ DETECTION_SEND_DELAY = 1  # Delay in seconds between sending detections to serve
 TRACK_TIMEOUT = 5  # Timeout in seconds for object reappearance to trigger send
 
 # Class names for the model
+# CLASS_NAMES: COCO dataset (80 classes) - dùng cho model mặc định
 CLASS_NAMES = [
     "person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck",
     "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
@@ -67,7 +81,9 @@ CLASS_NAMES = [
     "toothbrush"
 ]
 
-CLASS_NAMES2 = ['ambulance', 'bicycle', 'bird', 'bus', 'camel', 'car', 'cow', 'deer', 'drone', 'dump truck', 'excavators', 'goat', 'horse', 'motorcycle', 'person', 'sheep', 'truck', 'wheel loader']
+# CLASS_NAMES2: Custom model với 11 classes (dùng cho best.onnx)
+# Thứ tự: tree, drone, truck, motorcycle, crane, livestock, pole, fire, smoke, kite, person
+CLASS_NAMES2 = ['tree', 'drone', 'truck', 'motorcycle', 'crane', 'livestock', 'pole', 'fire', 'smoke', 'kite', 'person']
 # Create directories if they don't exist
 os.makedirs(IMAGES_DIR, exist_ok=True)
 # os.makedirs(SERVER_IMAGES_DIR, exist_ok=True) #no need server image folder in client folder
@@ -78,5 +94,9 @@ CLIENT_LATITUDE = None  # GPS latitude (optional)
 CLIENT_LONGITUDE = None  # GPS longitude (optional)
 
 # Server polling configuration (kiểm tra thay đổi từ server)
-POLL_INTERVAL = 30  # Kiểm tra mỗi 30 giây
-ENABLE_AUTO_RESTART = True  # Tự động restart khi có thay đổi IP/ROI
+# Cấu hình “restart ngay lập tức” khi web đổi chất lượng/IP/ROI:
+POLL_INTERVAL = 2          # Kiểm tra mỗi 2 giây
+POLL_DEBOUNCE_COUNT = 1    # Thấy giá trị mới là áp dụng ngay (không chờ lặp)
+POLL_COOLDOWN = 0          # Không chờ cooldown sau khi restart
+POLL_MAX_CHECKS = 0        # 0 = chạy liên tục (không giới hạn số lần kiểm tra)
+ENABLE_AUTO_RESTART = True  # Tự động restart khi có thay đổi IP/ROI/subtype

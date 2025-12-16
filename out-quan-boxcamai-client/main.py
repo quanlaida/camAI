@@ -14,6 +14,8 @@ import requests
 
 
 def video_capture_process(q, stop_event, source, camera_ip=None):
+    # Đơn giản hoá: luôn dùng stream chất lượng THẤP (subtype=1) cho AI để ổn định
+    rtsp_subtype = 1
     if config.VIDEO_FILE_PATH:
         # Use OpenCV to read from local video file
         cap = cv2.VideoCapture(config.VIDEO_FILE_PATH)
@@ -49,8 +51,13 @@ def video_capture_process(q, stop_event, source, camera_ip=None):
                 return  # Thoát hàm thay vì restart service
             
             # Use OpenCV to read from RTSP stream
-            rtspLink = f"rtsp://{config.RTSP_USER}:{config.RTSP_PASS}@{selected_ip}:{config.RTSP_PORT}/cam/realmonitor?channel=1&subtype=1"
-            print(f"Connecting to RTSP: rtsp://{config.RTSP_USER}:***@{selected_ip}:{config.RTSP_PORT}/...")
+            # Luôn dùng subtype=1 (chất lượng thấp ổn định cho AI)
+            rtsp_subtype = 1
+            rtspLink = f"rtsp://{config.RTSP_USER}:{config.RTSP_PASS}@{selected_ip}:{config.RTSP_PORT}/cam/realmonitor?channel=1&subtype={rtsp_subtype}"
+            quality_text = "chất lượng thấp (fixed)"  # luôn low quality
+            print(f"Connecting to RTSP ({quality_text}): rtsp://{config.RTSP_USER}:***@{selected_ip}:{config.RTSP_PORT}/cam/realmonitor?channel=1&subtype={rtsp_subtype}")
+            # Hiển thị đầy đủ URL (ẩn mật khẩu) mỗi lần kết nối để dễ kiểm tra
+            print(f"[RTSP] URL hiện tại: {rtspLink.replace(config.RTSP_PASS, '***')}")
             cap = cv2.VideoCapture(rtspLink)
             if not cap.isOpened():
                 print(f"Error: Could not open RTSP stream at {selected_ip}:{config.RTSP_PORT}")
@@ -165,10 +172,10 @@ def get_info():
         return None
 
 
-def check_server_updates(current_ip, current_roi, current_roi_regions_json, current_show_overlay):
+def check_server_updates(current_ip, current_roi, current_roi_regions_json, current_show_overlay, current_rtsp_subtype=None):
     """
     Kiểm tra xem có thay đổi từ server không
-    Returns: (ip_changed, roi_changed, overlay_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay) hoặc None nếu lỗi
+    Returns: (ip_changed, roi_changed, overlay_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_rtsp_subtype) hoặc None nếu lỗi
     """
     try:
         client_info = get_info()
@@ -184,6 +191,8 @@ def check_server_updates(current_ip, current_roi, current_roi_regions_json, curr
         )
         new_roi_regions_json = client_info.get('roi_regions')
         new_show_overlay = client_info.get('show_roi_overlay', True)
+        # rtsp_subtype hiện không còn dùng cho client (luôn dùng subtype=1)
+        new_rtsp_subtype = current_rtsp_subtype
         
         # So sánh IP
         current_ip_normalized = current_ip if current_ip is not None else ""
@@ -200,16 +209,23 @@ def check_server_updates(current_ip, current_roi, current_roi_regions_json, curr
         if current_roi_regions_json != new_roi_regions_json:
             roi_changed = True
         overlay_changed = (current_show_overlay is not None and new_show_overlay is not None and current_show_overlay != new_show_overlay)
+        
+        # Không theo dõi subtype nữa
+        subtype_changed = False
 
         # Debug log (giảm spam: chỉ log khi có thay đổi)
-        if ip_changed or roi_changed or overlay_changed:
-            print(f"🔍 Change detected - IP: {ip_changed}, ROI: {roi_changed}, Overlay: {overlay_changed}")
+        if ip_changed or roi_changed or overlay_changed or subtype_changed:
+            print(f"🔍 Change detected - IP: {ip_changed}, ROI: {roi_changed}, Overlay: {overlay_changed}, Subtype: {subtype_changed}")
             if roi_changed:
                 print(f"   ROI regions changed: {current_roi_regions_json} -> {new_roi_regions_json}")
             if overlay_changed:
                 print(f"   show_roi_overlay: {current_show_overlay} -> {new_show_overlay}")
+            if subtype_changed:
+                quality_old = "chất lượng cao" if current_rtsp_subtype == 0 else "chất lượng thấp"
+                quality_new = "chất lượng cao" if new_rtsp_subtype == 0 else "chất lượng thấp"
+                print(f"   rtsp_subtype: {current_rtsp_subtype} ({quality_old}) -> {new_rtsp_subtype} ({quality_new})")
         
-        return (ip_changed, roi_changed, overlay_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay)
+        return (ip_changed, roi_changed, overlay_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_rtsp_subtype)
     
     except Exception as e:
         print(f"❌ Error checking server updates: {e}")
@@ -218,10 +234,11 @@ def check_server_updates(current_ip, current_roi, current_roi_regions_json, curr
         return None
 
 
-def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regions_json, initial_show_overlay):
+def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regions_json, initial_show_overlay, initial_rtsp_subtype=None):
     """
-    Thread chạy nền để kiểm tra thay đổi từ server định kỳ
-    Nếu phát hiện thay đổi IP hoặc ROI, tự động restart service
+    Thread chạy nền để kiểm tra thay đổi từ server (chỉ kiểm tra MỘT LẦN rồi dừng).
+    Nếu phát hiện thay đổi IP, ROI, hoặc rtsp_subtype, tự động restart service.
+    Tránh việc restart liên tục do polling lặp.
     """
     import time
     import config
@@ -234,28 +251,32 @@ def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regio
     current_roi = initial_roi
     current_roi_regions_json = initial_roi_regions_json
     current_show_overlay = initial_show_overlay
+    current_rtsp_subtype = None  # Không dùng subtype nữa
     poll_count = 0
     
     print(f"🔄 Server polling thread started (checking every {config.POLL_INTERVAL}s)")
     print(f"   Initial IP: {current_ip}, Initial ROI: {current_roi}")
     print(f"   Initial ROI regions: {current_roi_regions_json}")
+    print(f"   RTSP subtype is fixed to 1 (low quality) on client")
     
-    # QUAN TRỌNG: Đợi interval TRƯỚC KHI check lần đầu tiên
-    # Để tránh restart ngay sau khi service start
+    # Đợi interval trước khi check (nếu cần)
     print(f"⏳ Waiting {config.POLL_INTERVAL}s before first check...")
     stop_event.wait(config.POLL_INTERVAL)
-    
+
     if stop_event.is_set():
-        print("🛑 Server polling thread stopped (before first check)")
+        print("🛑 Server polling thread stopped (before check)")
         return
-    
+
+    # Đơn giản hóa: không debounce, không cooldown, phát hiện là restart ngay
+    max_polls = getattr(config, 'POLL_MAX_CHECKS', 0)  # 0 = không giới hạn
+
     while not stop_event.is_set():
         try:
             poll_count += 1
             print(f"🔍 Polling server... (check #{poll_count})")
             
             # Kiểm tra thay đổi
-            result = check_server_updates(current_ip, current_roi, current_roi_regions_json, current_show_overlay)
+            result = check_server_updates(current_ip, current_roi, current_roi_regions_json, current_show_overlay, current_rtsp_subtype)
             
             if result is None:
                 print("⚠️ Could not check server updates, will retry next time")
@@ -265,7 +286,7 @@ def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regio
                     break
                 continue
             
-            ip_changed, roi_changed, overlay_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay = result
+            ip_changed, roi_changed, overlay_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_rtsp_subtype = result
             
             # Phát hiện thay đổi - CHỈ restart nếu thực sự có thay đổi
             if ip_changed:
@@ -295,28 +316,47 @@ def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regio
                 restart_service()
                 return
             
+            if subtype_changed:
+                quality_old = "chất lượng cao" if current_rtsp_subtype == 0 else "chất lượng thấp"
+                quality_new = "chất lượng cao" if new_rtsp_subtype == 0 else "chất lượng thấp"
+                print(f"🔄 RTSP subtype changed detected!")
+                print(f"   Old subtype: {current_rtsp_subtype} ({quality_old})")
+                print(f"   New subtype: {new_rtsp_subtype} ({quality_new})")
+                selected_ip = new_ip or current_ip or config.RTSP_IP
+                if selected_ip:
+                    new_rtsp_url = f"rtsp://{config.RTSP_USER}:{config.RTSP_PASS}@{selected_ip}:{config.RTSP_PORT}/cam/realmonitor?channel=1&subtype={new_rtsp_subtype}"
+                    print(f"   [RTSP] URL mới: {new_rtsp_url.replace(config.RTSP_PASS, '***')}")
+                print("🔄 Restarting service to apply changes...")
+                time.sleep(1)
+                restart_service()
+                return
+            
             # Cập nhật giá trị hiện tại (để lần sau so sánh)
             current_ip = new_ip
             current_roi = new_roi
+            current_rtsp_subtype = new_rtsp_subtype
             current_roi_regions_json = new_roi_regions_json
             current_show_overlay = new_show_overlay
             
             if poll_count % 10 == 0:  # Log mỗi 10 lần
-                print(f"✅ No changes detected (checked {poll_count} times)")
-            
+                print(f"✅ No critical changes detected (checked {poll_count} times)")
+
+            # Dừng sau max_polls (nếu có giới hạn)
+            if max_polls and poll_count >= max_polls:
+                print(f"ℹ️ Max polls reached ({max_polls}), stopping polling thread.")
+                break
+
             # Đợi interval trước lần check tiếp theo
             stop_event.wait(config.POLL_INTERVAL)
             if stop_event.is_set():
                 break
-        
+
         except Exception as e:
             print(f"❌ Error in polling thread: {e}")
             import traceback
             traceback.print_exc()
-            # Đợi một chút trước khi retry
-            stop_event.wait(config.POLL_INTERVAL)
-            if stop_event.is_set():
-                break
+            # Dừng thread nếu lỗi
+            break
     
     print("🛑 Server polling thread stopped")
 
@@ -463,9 +503,13 @@ def main():
     polling_thread = None
     if config.ENABLE_AUTO_RESTART:
         current_roi = (roi_x1, roi_y1, roi_x2, roi_y2)
+        # Lấy rtsp_subtype ban đầu từ server (default 0 để khớp UI)
+        initial_rtsp_subtype = None
+        if client_info:
+            initial_rtsp_subtype = client_info.get('rtsp_subtype', 0)
         polling_thread = threading.Thread(
             target=server_polling_thread,
-            args=(stop_event, ip_address, current_roi, roi_regions_json, show_roi_overlay),
+            args=(stop_event, ip_address, current_roi, roi_regions_json, show_roi_overlay, initial_rtsp_subtype),
             daemon=True
         )
         polling_thread.start()
