@@ -16,6 +16,7 @@
             <nav class="nav-tabs">
                 <button class="tab-btn active" data-tab="detections">Detections</button>
                 <button class="tab-btn" data-tab="clients">Clients</button>
+                <button class="tab-btn" data-tab="playback">Playback</button>
             </nav>
             <div class="stats">
                 <div class="stat-card">
@@ -143,6 +144,55 @@
                         <!-- Client rows will be inserted here -->
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Playback Tab Content -->
+        <div id="playback-tab" class="tab-content" style="display: none;">
+            <div class="detections-split-layout">
+                <!-- Left: Playback controls + video -->
+                <div class="detections-stream-panel">
+                    <div class="stream-panel-header">
+                        <h3>Playback & Recording</h3>
+                        <select id="playback-client-select" class="stream-select">
+                            <option value="">Chọn client...</option>
+                        </select>
+                    </div>
+                    <div class="playback-controls">
+                        <button id="start-recording-btn" class="btn-primary" disabled>Bắt đầu ghi</button>
+                        <button id="stop-recording-btn" class="btn-secondary" disabled>Dừng ghi</button>
+                    </div>
+                    <div id="playback-video-container" class="detection-stream-container">
+                        <div id="playback-placeholder" class="stream-placeholder" style="display: flex;">
+                            <p>Chọn video từ danh sách để phát</p>
+                        </div>
+                        <video id="playback-video" controls style="display: none;">
+                            Trình duyệt không hỗ trợ video.
+                        </video>
+                    </div>
+                </div>
+
+                <!-- Right: Danh sách file video -->
+                <div class="detections-list-panel">
+                    <div class="detections-list-header">
+                        <h3>Danh sách Video đã ghi</h3>
+                        <button id="refresh-recordings-btn" class="btn-small">Refresh</button>
+                    </div>
+                    <div class="detections-container">
+                        <table id="recordings-table">
+                            <thead>
+                                <tr>
+                                    <th>Ngày</th>
+                                    <th>File</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recordings-body">
+                                <!-- Recording rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

@@ -22,6 +22,10 @@ IMAGES_DIR = 'captured_images'  # Client images
 SERVER_IMAGES_DIR = os.path.join(os.path.dirname(__file__), 'captured_images')  # Server images
 MAX_IMAGES_PER_DETECTION = 5  # Maximum images to keep per detection class
 
+# Video Recording Configuration
+# Thư mục gốc lưu các file video record (server side)
+VIDEO_RECORD_BASE_DIR = os.path.join(os.path.dirname(__file__), 'recordings')
+
 # Email Alert Configuration (Gmail SMTP)
 ALERT_EMAIL_SENDER = os.getenv('ALERT_EMAIL_SENDER', '')  # Email gửi đi (ví dụ: your-email@gmail.com)
 ALERT_EMAIL_PASSWORD = os.getenv('ALERT_EMAIL_PASSWORD', '')  # App Password từ Gmail (không phải mật khẩu thường)

@@ -13,7 +13,7 @@ IMAGES_DIR = os.path.join(os.path.dirname(__file__), 'captured_images')
 MAX_IMAGES_PER_DETECTION = 5  # Maximum images to keep per detection class
 
 # Detection Configuration
-DETECTION_THRESHOLD = 0.25
+DETECTION_THRESHOLD = 0.22
 IOU_THRESHOLD = 0.3
 # FRAME_SKIP: Bỏ qua N frames giữa các lần detection để tăng performance
 # Với input 640x640, nên tăng FRAME_SKIP để giảm tải cho Pi

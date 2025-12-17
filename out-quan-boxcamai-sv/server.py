@@ -5,6 +5,9 @@ from sqlalchemy import func
 from datetime import datetime
 import json
 import os
+from pathlib import Path
+import re
+import subprocess
 from flask_cors import CORS
 from flask import Flask, request, jsonify, send_file, render_template
 from werkzeug.exceptions import ClientDisconnected
@@ -37,6 +40,16 @@ processed_video_frames = {}
 import threading
 video_frames_lock = threading.Lock()
 processed_frames_lock = threading.Lock()
+
+# Video recording state: { client_id: subprocess.Popen }
+recording_processes = {}
+recording_lock = threading.Lock()
+
+# Đảm bảo thư mục lưu record tồn tại
+try:
+    Path(config.VIDEO_RECORD_BASE_DIR).mkdir(parents=True, exist_ok=True)
+except Exception as e:
+    print(f"⚠️ Cannot create VIDEO_RECORD_BASE_DIR: {e}")
 
 # Tối ưu: Cache client info để tránh query database mỗi request
 # Format: {serial_number or client_name: {'id': client_id, 'last_updated': datetime, 'timestamp': float, 'needs_db_update': bool}}
@@ -1245,6 +1258,154 @@ def get_current_frame(client_id):
         print(f"Error getting current frame: {e}")
         return jsonify({'error': str(e)}), 500
 
+
+def _get_client_safe_name(session, client_id: int) -> str:
+    """Helper: lấy tên client và chuyển thành dạng an toàn cho tên thư mục."""
+    client = session.query(Client).filter(Client.id == client_id).first()
+    if not client:
+        return f"client_{client_id}"
+    name = client.name or f"client_{client_id}"
+    # Chỉ giữ lại ký tự chữ, số, _ và -
+    safe = re.sub(r'[^a-zA-Z0-9_-]+', '_', name)
+    return safe or f"client_{client_id}"
+
+
+def _build_record_path(client_id: int) -> Path:
+    """Tạo thư mục lưu record theo client + ngày, trả về full path file mp4."""
+    base = Path(config.VIDEO_RECORD_BASE_DIR)
+    session = Session()
+    try:
+        safe_name = _get_client_safe_name(session, client_id)
+    finally:
+        session.close()
+
+    date_str = datetime.now().strftime("%Y%m%d")
+    time_str = datetime.now().strftime("%H%M%S")
+    folder = base / safe_name / date_str
+    folder.mkdir(parents=True, exist_ok=True)
+    filename = f"{safe_name}_{date_str}_{time_str}.mp4"
+    return folder / filename
+
+
+@app.route('/api/recordings/start', methods=['POST'])
+def start_recording():
+    """
+    Bắt đầu ghi video processed stream của 1 client xuống ổ đĩa.
+
+    Request JSON:
+      { "client_id": 1 }
+    """
+    data = request.get_json() or {}
+    client_id = data.get('client_id')
+    if not client_id:
+        return jsonify({'error': 'client_id is required'}), 400
+
+    with recording_lock:
+        if client_id in recording_processes and recording_processes[client_id].poll() is None:
+            return jsonify({'error': 'Recording already running for this client'}), 409
+
+        output_path = _build_record_path(int(client_id))
+        # Dùng processed stream nội bộ làm nguồn
+        stream_url = f"http://127.0.0.1:{config.SERVER_PORT}/api/video/stream/processed/{client_id}"
+
+        cmd = [
+            'ffmpeg',
+            '-y',
+            '-i', stream_url,
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-crf', '23',
+            '-movflags', '+faststart',
+            str(output_path)
+        ]
+
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            recording_processes[client_id] = proc
+            return jsonify({'message': 'Recording started', 'file_path': str(output_path)}), 200
+        except FileNotFoundError:
+            return jsonify({'error': 'ffmpeg not found on server'}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/recordings/stop', methods=['POST'])
+def stop_recording():
+    """
+    Dừng ghi video cho 1 client.
+
+    Request JSON:
+      { "client_id": 1 }
+    """
+    data = request.get_json() or {}
+    client_id = data.get('client_id')
+    if not client_id:
+        return jsonify({'error': 'client_id is required'}), 400
+
+    client_id = int(client_id)
+    with recording_lock:
+        proc = recording_processes.get(client_id)
+        if not proc or proc.poll() is not None:
+            return jsonify({'error': 'No active recording for this client'}), 404
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+        recording_processes.pop(client_id, None)
+
+    return jsonify({'message': 'Recording stopped'}), 200
+
+
+@app.route('/api/recordings/<int:client_id>', methods=['GET'])
+def list_recordings(client_id):
+    """Liệt kê các file record của 1 client."""
+    base = Path(config.VIDEO_RECORD_BASE_DIR)
+    session = Session()
+    try:
+        safe_name = _get_client_safe_name(session, client_id)
+    finally:
+        session.close()
+
+    client_dir = base / safe_name
+    results = []
+    if client_dir.exists():
+        for day_dir in sorted(client_dir.iterdir()):
+            if not day_dir.is_dir():
+                continue
+            for f in sorted(day_dir.glob("*.mp4")):
+                rel_path = f.relative_to(base)
+                results.append({
+                    'filename': f.name,
+                    'date_folder': day_dir.name,
+                    'path': str(rel_path).replace('\\', '/'),
+                    'url': f"/api/recordings/file/{client_id}/{day_dir.name}/{f.name}"
+                })
+
+    return jsonify(results), 200
+
+
+@app.route('/api/recordings/file/<int:client_id>/<string:date_folder>/<path:filename>', methods=['GET'])
+def get_recording_file(client_id, date_folder, filename):
+    """Trả về file video mp4 đã ghi cho playback."""
+    base = Path(config.VIDEO_RECORD_BASE_DIR)
+    session = Session()
+    try:
+        safe_name = _get_client_safe_name(session, client_id)
+    finally:
+        session.close()
+
+    file_path = base / safe_name / date_folder / filename
+
+    # Đảm bảo file nằm trong VIDEO_RECORD_BASE_DIR (tránh path traversal)
+    try:
+        file_path.resolve().relative_to(base.resolve())
+    except Exception:
+        return jsonify({'error': 'Invalid file path'}), 400
+
+    if not file_path.exists():
+        return jsonify({'error': 'File not found'}), 404
+
+    return send_file(str(file_path), mimetype='video/mp4')
 
 @app.route('/api/clients/by-serial/<string:serial_number>', methods=['GET'])
 def get_client_by_serial(serial_number):

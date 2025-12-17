@@ -153,6 +153,15 @@ function switchTab(tabName) {
         });
     } else if (tabName === 'clients') {
         loadClients();
+    } else if (tabName === 'playback') {
+        // Load danh sách client và recordings cho tab playback
+        loadPlaybackClients().then(() => {
+            // Nếu đã có client được chọn thì load recordings luôn
+            const select = document.getElementById('playback-client-select');
+            if (select && select.value) {
+                loadRecordings(select.value);
+            }
+        });
     }
 
     currentTab = tabName;
@@ -173,6 +182,202 @@ function refreshData() {
     } else if (currentTab === 'clients') {
         loadClients();
     }
+}
+
+// ==================== PLAYBACK FUNCTIONS ====================
+
+async function loadPlaybackClients() {
+    try {
+        const response = await fetch('/api/clients');
+        const clients = await response.json();
+
+        const select = document.getElementById('playback-client-select');
+        if (!select) return clients;
+
+        const currentValue = select.value;
+        select.innerHTML = '<option value=\"\">Chọn client...</option>';
+
+        clients.forEach(client => {
+            const option = document.createElement('option');
+            option.value = client.id;
+            option.textContent = client.name;
+            if (currentValue == client.id) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+
+        // Gắn sự kiện nếu chưa gắn
+        if (!select._playbackBound) {
+            select.addEventListener('change', handlePlaybackClientChange);
+            select._playbackBound = true;
+        }
+
+        // Nút start/stop recording
+        const startBtn = document.getElementById('start-recording-btn');
+        const stopBtn = document.getElementById('stop-recording-btn');
+        const refreshBtn = document.getElementById('refresh-recordings-btn');
+
+        if (startBtn && !startBtn._bound) {
+            startBtn.addEventListener('click', startRecordingForSelectedClient);
+            startBtn._bound = true;
+        }
+        if (stopBtn && !stopBtn._bound) {
+            stopBtn.addEventListener('click', stopRecordingForSelectedClient);
+            stopBtn._bound = true;
+        }
+        if (refreshBtn && !refreshBtn._bound) {
+            refreshBtn.addEventListener('click', () => {
+                const cid = select.value;
+                if (cid) loadRecordings(cid);
+            });
+            refreshBtn._bound = true;
+        }
+
+        // Nếu chưa chọn mà có clients, tự chọn client đầu
+        if (!currentValue && clients.length > 0) {
+            select.value = clients[0].id;
+            handlePlaybackClientChange({ target: select });
+        }
+
+        // Cập nhật trạng thái nút start theo việc có client hay không
+        if (startBtn) startBtn.disabled = !select.value;
+
+        return clients;
+    } catch (error) {
+        console.error('Error loading playback clients:', error);
+        return [];
+    }
+}
+
+function handlePlaybackClientChange(event) {
+    const clientId = event.target.value;
+    const startBtn = document.getElementById('start-recording-btn');
+    const stopBtn = document.getElementById('stop-recording-btn');
+
+    if (!clientId) {
+        if (startBtn) startBtn.disabled = true;
+        if (stopBtn) stopBtn.disabled = true;
+        document.getElementById('recordings-body').innerHTML =
+            '<tr><td colspan=\"3\" style=\"text-align:center;color:#7f8c8d;\">Chọn client để xem danh sách video</td></tr>';
+        const video = document.getElementById('playback-video');
+        const placeholder = document.getElementById('playback-placeholder');
+        if (video) {
+            video.src = '';
+            video.style.display = 'none';
+        }
+        if (placeholder) {
+            placeholder.style.display = 'flex';
+            placeholder.querySelector('p').textContent = 'Chọn client để xem danh sách video';
+        }
+        return;
+    }
+
+    if (startBtn) startBtn.disabled = false;
+    if (stopBtn) stopBtn.disabled = false;
+    loadRecordings(clientId);
+}
+
+async function startRecordingForSelectedClient() {
+    const select = document.getElementById('playback-client-select');
+    const clientId = select ? select.value : null;
+    if (!clientId) return;
+
+    try {
+        const res = await fetch('/api/recordings/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ client_id: parseInt(clientId, 10) })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            alert(`Lỗi khi bắt đầu ghi: ${data.error || res.status}`);
+            return;
+        }
+        showToastNotification('Đã bắt đầu ghi video', 'info');
+    } catch (e) {
+        console.error('startRecording error:', e);
+        alert('Lỗi khi bắt đầu ghi video');
+    }
+}
+
+async function stopRecordingForSelectedClient() {
+    const select = document.getElementById('playback-client-select');
+    const clientId = select ? select.value : null;
+    if (!clientId) return;
+
+    try {
+        const res = await fetch('/api/recordings/stop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ client_id: parseInt(clientId, 10) })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            alert(`Lỗi khi dừng ghi: ${data.error || res.status}`);
+            return;
+        }
+        showToastNotification('Đã dừng ghi video', 'info');
+        // Sau khi dừng thì refresh danh sách file
+        loadRecordings(clientId);
+    } catch (e) {
+        console.error('stopRecording error:', e);
+        alert('Lỗi khi dừng ghi video');
+    }
+}
+
+async function loadRecordings(clientId) {
+    try {
+        const res = await fetch(`/api/recordings/${clientId}`);
+        const list = await res.json();
+        const tbody = document.getElementById('recordings-body');
+        if (!tbody) return;
+
+        if (!Array.isArray(list) || list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan=\"3\" style=\"text-align:center;color:#7f8c8d;\">Chưa có video nào được ghi</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = list.map(rec => `
+            <tr>
+                <td>${rec.date_folder}</td>
+                <td>${rec.filename}</td>
+                <td>
+                    <button class=\"view-btn\" onclick=\"playRecording('${rec.url}')\">Play</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        console.error('loadRecordings error:', e);
+        const tbody = document.getElementById('recordings-body');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan=\"3\" style=\"text-align:center;color:#e74c3c;\">Lỗi khi tải danh sách video</td></tr>';
+        }
+    }
+}
+
+function playRecording(url) {
+    const video = document.getElementById('playback-video');
+    const placeholder = document.getElementById('playback-placeholder');
+    if (!video) return;
+    
+    // Ẩn placeholder và hiển thị video
+    if (placeholder) placeholder.style.display = 'none';
+    video.style.display = 'block';
+    
+    // Thêm timestamp để tránh cache
+    const fullUrl = `${url}?t=${Date.now()}`;
+    video.src = fullUrl;
+    video.load(); // Load video mới
+    video.play().catch(err => {
+        console.error('Error playing video:', err);
+        // Nếu lỗi, hiển thị lại placeholder
+        if (placeholder) {
+            placeholder.style.display = 'flex';
+            placeholder.querySelector('p').textContent = 'Không thể phát video. Vui lòng thử lại.';
+        }
+        video.style.display = 'none';
+    });
 }
 
 function changePage(direction) {
