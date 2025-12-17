@@ -352,16 +352,13 @@ function displayDetections(detections) {
 }
 
 function formatTimestamp(timestamp) {
+    if (!timestamp) return '';
     const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffHours = diffMs / (1000 * 60 * 60);
 
-    if (diffHours < 24) {
-        return date.toLocaleTimeString();
-    } else {
-        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-    }
+    // Luôn hiển thị đầy đủ ngày + giờ theo múi giờ local (VN), định dạng 24h
+    const dateStr = date.toLocaleDateString('vi-VN');
+    const timeStr = date.toLocaleTimeString('vi-VN', { hour12: false });
+    return `${dateStr} ${timeStr}`;
 }
 
 function isClientOnline(updatedAt) {

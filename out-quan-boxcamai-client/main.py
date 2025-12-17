@@ -3,19 +3,17 @@ import subprocess
 import sys
 import os
 import numpy as np
+import time
 from multiprocessing import Process, Queue, Event
 import argparse
 import config
 from detection import detection_process
 from sender import start_send_thread, stop_send_thread_func
-from stream_sender import start_stream_thread, stop_stream_thread_func, send_video_frame
-# RAW stream đã bỏ - chỉ dùng processed stream để giảm tải cho Pi
+from stream_sender import send_video_frame
 import requests
 
 
 def video_capture_process(q, stop_event, source, camera_ip=None):
-    # Đơn giản hoá: luôn dùng stream chất lượng THẤP (subtype=1) cho AI để ổn định
-    rtsp_subtype = 1
     if config.VIDEO_FILE_PATH:
         # Use OpenCV to read from local video file
         cap = cv2.VideoCapture(config.VIDEO_FILE_PATH)
@@ -23,6 +21,11 @@ def video_capture_process(q, stop_event, source, camera_ip=None):
             print(f"Error: Could not open video file {config.VIDEO_FILE_PATH}")
             return
         try:
+            # Rate limiting: giới hạn FPS để giảm CPU
+            target_fps = config.CAMERA_FRAMERATE if hasattr(config, 'CAMERA_FRAMERATE') else 10
+            frame_interval = 1.0 / target_fps
+            last_frame_time = time.time()
+            
             while not stop_event.is_set():
                 ret, frame = cap.read()
                 if not ret:
@@ -31,6 +34,13 @@ def video_capture_process(q, stop_event, source, camera_ip=None):
                 if frame is not None and not q.full():
                     q.put(frame)
                     # send_video_frame(frame)  # Đã bỏ RAW stream để giảm tải cho Pi
+                
+                # Rate limiting: đợi đến khi đủ thời gian cho frame tiếp theo
+                elapsed = time.time() - last_frame_time
+                sleep_time = max(0, frame_interval - elapsed)
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                last_frame_time = time.time()
         finally:
             cap.release()
     else:
@@ -52,10 +62,8 @@ def video_capture_process(q, stop_event, source, camera_ip=None):
             
             # Use OpenCV to read from RTSP stream
             # Luôn dùng subtype=1 (chất lượng thấp ổn định cho AI)
-            rtsp_subtype = 1
-            rtspLink = f"rtsp://{config.RTSP_USER}:{config.RTSP_PASS}@{selected_ip}:{config.RTSP_PORT}/cam/realmonitor?channel=1&subtype={rtsp_subtype}"
-            quality_text = "chất lượng thấp (fixed)"  # luôn low quality
-            print(f"Connecting to RTSP ({quality_text}): rtsp://{config.RTSP_USER}:***@{selected_ip}:{config.RTSP_PORT}/cam/realmonitor?channel=1&subtype={rtsp_subtype}")
+            rtspLink = f"rtsp://{config.RTSP_USER}:{config.RTSP_PASS}@{selected_ip}:{config.RTSP_PORT}/cam/realmonitor?channel=1&subtype=1"
+            print(f"Connecting to RTSP (chất lượng thấp - fixed): rtsp://{config.RTSP_USER}:***@{selected_ip}:{config.RTSP_PORT}/cam/realmonitor?channel=1&subtype=1")
             # Hiển thị đầy đủ URL (ẩn mật khẩu) mỗi lần kết nối để dễ kiểm tra
             print(f"[RTSP] URL hiện tại: {rtspLink.replace(config.RTSP_PASS, '***')}")
             cap = cv2.VideoCapture(rtspLink)
@@ -63,6 +71,11 @@ def video_capture_process(q, stop_event, source, camera_ip=None):
                 print(f"Error: Could not open RTSP stream at {selected_ip}:{config.RTSP_PORT}")
                 return
             try:
+                # Rate limiting: giới hạn FPS để giảm CPU
+                target_fps = config.CAMERA_FRAMERATE if hasattr(config, 'CAMERA_FRAMERATE') else 10
+                frame_interval = 1.0 / target_fps
+                last_frame_time = time.time()
+                
                 while not stop_event.is_set():
                     ret, frame = cap.read()
                     if not ret:
@@ -71,6 +84,13 @@ def video_capture_process(q, stop_event, source, camera_ip=None):
                     if frame is not None and not q.full():
                         q.put(frame)
                         send_video_frame(frame)  # Gửi raw frame về server
+                    
+                    # Rate limiting: đợi đến khi đủ thời gian cho frame tiếp theo
+                    elapsed = time.time() - last_frame_time
+                    sleep_time = max(0, frame_interval - elapsed)
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
+                    last_frame_time = time.time()
             finally:
                 cap.release()
         elif source == 'webcam':
@@ -80,6 +100,11 @@ def video_capture_process(q, stop_event, source, camera_ip=None):
                 print("Error: Could not open webcam")
                 return
             try:
+                # Rate limiting: giới hạn FPS để giảm CPU
+                target_fps = config.CAMERA_FRAMERATE if hasattr(config, 'CAMERA_FRAMERATE') else 10
+                frame_interval = 1.0 / target_fps
+                last_frame_time = time.time()
+                
                 while not stop_event.is_set():
                     ret, frame = cap.read()
                     if not ret:
@@ -88,6 +113,13 @@ def video_capture_process(q, stop_event, source, camera_ip=None):
                     if frame is not None and not q.full():
                         q.put(frame)
                         send_video_frame(frame)  # Gửi raw frame về server
+                    
+                    # Rate limiting: đợi đến khi đủ thời gian cho frame tiếp theo
+                    elapsed = time.time() - last_frame_time
+                    sleep_time = max(0, frame_interval - elapsed)
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
+                    last_frame_time = time.time()
             finally:
                 cap.release()
         else:  # rpicam
@@ -106,11 +138,17 @@ def video_capture_process(q, stop_event, source, camera_ip=None):
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, bufsize=0)
             buffer = b""
             try:
+                # Rate limiting: giới hạn FPS để giảm CPU
+                target_fps = config.CAMERA_FRAMERATE if hasattr(config, 'CAMERA_FRAMERATE') else 10
+                frame_interval = 1.0 / target_fps
+                last_frame_time = time.time()
+                
                 while not stop_event.is_set():
                     data = proc.stdout.read(1024)
                     if not data:
                         break
                     buffer += data
+                    frame_decoded = False
                     while b'\xff\xd9' in buffer:
                         split_idx = buffer.index(b'\xff\xd9') + 2
                         jpg_data = buffer[:split_idx]
@@ -120,6 +158,15 @@ def video_capture_process(q, stop_event, source, camera_ip=None):
                         if frame is not None and not q.full():
                             q.put(frame)
                             send_video_frame(frame)  # Gửi raw frame về server
+                            frame_decoded = True
+                    
+                    # Rate limiting: chỉ sleep sau khi decode được frame
+                    if frame_decoded:
+                        elapsed = time.time() - last_frame_time
+                        sleep_time = max(0, frame_interval - elapsed)
+                        if sleep_time > 0:
+                            time.sleep(sleep_time)
+                        last_frame_time = time.time()
             finally:
                 proc.terminate()
                 proc.wait()
@@ -365,32 +412,6 @@ def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regio
 # Client phải được tạo trên server với Serial number đúng
 
 
-def stop_service():
-    try:
-        print("🔄 STOPPING boxcamai service...")
-
-        res = subprocess.run(
-            ['sudo', 'systemctl', 'stop', 'boxcamai'],
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-
-        if res.returncode == 0:
-            print("✅ Service boxcamai stopped successfully")
-            sys.exit(0)  # ✅ Thoát thành công
-        else:
-            print(f"❌ Failed to stop service: {res.stderr}")
-            sys.exit(1)  # ✅ Thoát với lỗi (vì restart thất bại)
-
-    except subprocess.TimeoutExpired:
-        print("❌ Timeout when stopping service")
-        sys.exit(1)
-    except Exception as e:
-        print(f"❌ Error stopping service: {e}")
-        sys.exit(1)
-
-
 def restart_service():
     """Restart service và thoát clean"""
     try:
@@ -495,8 +516,6 @@ def main():
                            args=(frame_queue, stop_event, source, ip_address))
     capture_proc.start()
 
-    # Start raw video streaming thread - ĐÃ BỎ để giảm tải cho Pi
-    # start_stream_thread()  # Chỉ dùng processed stream (hình ảnh đã qua AI detection)
 
     # Start server polling thread để kiểm tra thay đổi từ server
     import threading
@@ -526,7 +545,6 @@ def main():
     finally:
         # Cleanup
         stop_event.set()
-        # stop_stream_thread_func()  # Đã bỏ RAW stream - không cần dừng
         capture_proc.join(timeout=5)
         detection_proc.join(timeout=5)
         # Note: Sender thread cleanup is now handled in detection process

@@ -26,33 +26,17 @@ def get_serial_number():
         print(f"❌ Error reading serial_number.txt: {e}")
         return None
 
-# Global queue để nhận frames từ video capture process (raw)
-# Tăng queue size để buffer tốt hơn, giảm frame loss
-video_stream_queue = Queue(maxsize=10)  # Tăng từ 2 lên 10 frames
 # Global queue để nhận processed frames từ detection process
-processed_stream_queue = Queue(maxsize=10)  # Tăng từ 2 lên 10 frames
+processed_stream_queue = Queue(maxsize=10)
 
-stream_thread = None
 processed_stream_thread = None
-stop_stream_thread = threading.Event()
 stop_processed_stream_thread = threading.Event()
 
 def send_video_frame(frame):
-    """Thêm raw frame vào queue để gửi về server"""
-    try:
-        # Frame skipping: Nếu queue đầy, bỏ frame cũ, giữ frame mới nhất
-        if video_stream_queue.full():
-            try:
-                video_stream_queue.get_nowait()  # Bỏ frame cũ
-            except:
-                pass
-        
-        # Resize frame để giảm bandwidth - Tối ưu: dùng INTER_LINEAR (nhanh hơn)
-        resized_frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_LINEAR)
-        video_stream_queue.put_nowait(resized_frame.copy())
-    except Exception as e:
-        # Ignore errors để không block main thread
-        pass
+    """Gửi raw frame về server (được gọi từ video_capture_process)"""
+    # Hiện tại không gửi raw stream để giảm tải cho Pi
+    # Hàm này được giữ lại để tương thích với code hiện tại
+    pass
 
 def send_processed_frame(frame):
     """Thêm processed frame (có detection boxes) vào queue để gửi về server"""
@@ -62,102 +46,26 @@ def send_processed_frame(frame):
             print("⚠️ send_processed_frame: Invalid frame (None or empty)")
             return
         
-        # Frame skipping: Nếu queue đầy, bỏ frame cũ, giữ frame mới nhất
-        if processed_stream_queue.full():
-            try:
-                processed_stream_queue.get_nowait()  # Bỏ frame cũ
-            except:
-                pass
-        
+        # Frame skipping: ưu tiên giữ frame MỚI nhất, không để raise queue.Full liên tục
+        # Thử put, nếu full thì bỏ bớt frame cũ rồi thử lại 1 lần
         # Resize frame để giảm bandwidth - Tối ưu: dùng INTER_LINEAR (nhanh hơn)
         resized_frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_LINEAR)
-        processed_stream_queue.put_nowait(resized_frame.copy())
-    except Exception as e:
-        # Log error để debug - không ignore im lặng
-        print(f"⚠️ Error in send_processed_frame: {e}")
-        import traceback
-        traceback.print_exc()
-
-def stream_worker():
-    """Worker thread gửi raw frames về server"""
-    global stop_stream_thread
-    
-    print("📹 Video stream sender thread started (raw)")
-    
-    # Adaptive frame rate tracking - Tối ưu cho mượt mà
-    target_fps = 20  # Tăng lên 20 FPS cho mượt hơn
-    frame_interval = 1.0 / target_fps
-    last_send_time = time.time()
-    
-    # Session để reuse connection (tối ưu performance)
-    session = requests.Session()
-    # Tối ưu session: tăng timeout và pool size
-    adapter = requests.adapters.HTTPAdapter(pool_connections=1, pool_maxsize=1, max_retries=2)
-    session.mount('https://', adapter)
-    
-    while not stop_stream_thread.is_set():
         try:
-            # Lấy frame từ queue với timeout
+            processed_stream_queue.put_nowait(resized_frame.copy())
+        except Exception:
+            # Queue có thể bị full giữa lúc full() và put_nowait() (race condition),
+            # nên bỏ 1 frame cũ rồi thử lại, nếu vẫn lỗi thì bỏ qua frame này.
             try:
-                frame = video_stream_queue.get(timeout=1.0)
-            except:
-                continue  # Timeout, tiếp tục loop
-            
-            if frame is None:
-                continue
-            
-            # Encode frame thành JPEG với quality tối ưu cho mượt mà
-            # Tối ưu: Giảm quality xuống 60 để tăng tốc encoding (vẫn đủ nhìn cho stream)
-            ret, buffer = cv2.imencode('.jpg', frame, [
-                cv2.IMWRITE_JPEG_QUALITY, 60,  # Giảm từ 70 xuống 60 để tăng tốc
-                cv2.IMWRITE_JPEG_OPTIMIZE, 1,  # Tối ưu kích thước file
-                cv2.IMWRITE_JPEG_PROGRESSIVE, 0  # Tắt progressive để encode nhanh hơn
-            ])
-            if not ret:
-                continue
-            
-            # Convert to bytes
-            frame_bytes = io.BytesIO(buffer).read()
-            
-            # Gửi về server với retry logic
-            serial_number = get_serial_number()
-            if not serial_number:
-                continue
-            
-            files = {'frame': ('frame.jpg', frame_bytes, 'image/jpeg')}
-            data = {
-                'serial_number': serial_number,
-                'frame_type': 'raw'
-            }
-            
-            # Retry logic: thử tối đa 2 lần
-            success = False
-            for attempt in range(2):
-                try:
-                    response = session.post(
-                        f'https://{config.SERVER_HOST}:{config.SERVER_PORT}/api/video/frame',
-                        files=files,
-                        data=data,
-                        timeout=5  # Tăng timeout từ 2s lên 5s
-                    )
-                    if response.status_code == 200:
-                        success = True
-                        break
-                except requests.exceptions.RequestException:
-                    if attempt < 1:  # Chỉ retry 1 lần
-                        time.sleep(0.1)
-            
-            # Adaptive frame rate: Điều chỉnh sleep dựa trên thời gian thực tế
-            elapsed = time.time() - last_send_time
-            if elapsed < frame_interval:
-                time.sleep(frame_interval - elapsed)
-            last_send_time = time.time()
-        
-        except Exception as e:
-            print(f"❌ Error in stream worker: {e}")
-            time.sleep(1)
-    
-    print("📹 Video stream sender thread stopped (raw)")
+                processed_stream_queue.get_nowait()
+            except Exception:
+                pass
+            try:
+                processed_stream_queue.put_nowait(resized_frame.copy())
+            except Exception:
+                pass
+    except Exception as e:
+        # Không spam traceback vì lỗi queue.Full không ảnh hưởng logic chính
+        print(f"⚠️ Error in send_processed_frame (ignored): {e}")
 
 def processed_stream_worker():
     """Worker thread gửi processed frames về server"""
@@ -166,7 +74,7 @@ def processed_stream_worker():
     print("📹 Processed video stream sender thread started (AI detection)")
     
     # Adaptive frame rate tracking - Tối ưu cho mượt mà
-    target_fps = 12  # Tăng lên 12 FPS cho processed stream
+    target_fps = 25  # Tăng lên 25 FPS cho processed stream để rất mượt
     frame_interval = 1.0 / target_fps
     last_send_time = time.time()
     
@@ -240,16 +148,6 @@ def processed_stream_worker():
     
     print("📹 Processed video stream sender thread stopped")
 
-def start_stream_thread():
-    """Khởi động thread gửi raw video stream"""
-    global stream_thread, stop_stream_thread
-    
-    if stream_thread is None or not stream_thread.is_alive():
-        stop_stream_thread.clear()
-        stream_thread = threading.Thread(target=stream_worker, daemon=True)
-        stream_thread.start()
-        print("📹 Raw video streaming enabled")
-
 def start_processed_stream_thread():
     """Khởi động thread gửi processed video stream"""
     global processed_stream_thread, stop_processed_stream_thread
@@ -259,13 +157,6 @@ def start_processed_stream_thread():
         processed_stream_thread = threading.Thread(target=processed_stream_worker, daemon=True)
         processed_stream_thread.start()
         print("📹 Processed video streaming enabled")
-
-def stop_stream_thread_func():
-    """Dừng thread gửi raw video stream"""
-    global stop_stream_thread
-    stop_stream_thread.set()
-    if stream_thread and stream_thread.is_alive():
-        stream_thread.join(timeout=2)
 
 def stop_processed_stream_thread_func():
     """Dừng thread gửi processed video stream"""

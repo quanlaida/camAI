@@ -9,35 +9,32 @@ SERVER_URL = f"https://{SERVER_HOST}:{SERVER_PORT}/api/detections"
 # DATABASE_URL = 'sqlite:///server/detections.db' # no need the db in client
 
 # Image Storage Configuration
-IMAGES_DIR = os.path.join(os.path.dirname(__file__), 'captured_images')# Client images
-SERVER_IMAGES_DIR = os.path.join(os.path.dirname(__file__),  'captured_images')  # Server images
+IMAGES_DIR = os.path.join(os.path.dirname(__file__), 'captured_images')
 MAX_IMAGES_PER_DETECTION = 5  # Maximum images to keep per detection class
 
 # Detection Configuration
 DETECTION_THRESHOLD = 0.25
 IOU_THRESHOLD = 0.3
-DETECTION_COOLDOWN = 15.0
-IOU_COOLDOWN_THRESHOLD = 0.7
 # FRAME_SKIP: Bỏ qua N frames giữa các lần detection để tăng performance
 # Với input 640x640, nên tăng FRAME_SKIP để giảm tải cho Pi
 # FRAME_SKIP = 1: Detect mọi frame (chậm nhất, chính xác nhất)
 # FRAME_SKIP = 2: Detect mỗi 2 frames (nhanh hơn 2x)
 # FRAME_SKIP = 3: Detect mỗi 3 frames (nhanh hơn 3x)
-FRAME_SKIP = 1  # Tăng từ 2 lên 3 để giảm CPU usage (detect mỗi 3 frames)
+FRAME_SKIP = 1  # Detect mọi frame để chính xác nhất
 TIME_BETWEEN_SEND = 2.0
 
-# Objects to track (empty list means track all detected objects)
-# TRACKED_OBJECTS = ['person', 'car', 'truck', 'bus', 'motorbike']  # COCO classes
-TRACKED_OBJECTS = ['person', 'drone', 'truck', 'motorcycle', 'kite', 'pole', 'fire', 'smoke']  # Custom model classes
+# ONNX Runtime threading (điều khiển số core logic)
+# 3 thread ~ dùng khoảng 3 core, mượt hơn nhưng nặng hơn 2 core
+ONNX_INTRA_THREADS = 3  # Số thread xử lý trong 1 operation (tương đương ~3 core)
+ONNX_INTER_THREADS = 1  # Số thread giữa các operations (thường để 1 là đủ)
 
 # Camera Configuration
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
-# CAMERA_FRAMERATE: Giảm framerate nếu Pi quá chậm với input 640x640
-# 30 fps: Mượt nhất nhưng nặng nhất
-# 20 fps: Cân bằng tốt
-# 15 fps: Nhẹ hơn, vẫn đủ mượt
-CAMERA_FRAMERATE = 15  # Giảm từ 20 xuống 15 để giảm tải CPU
+# CAMERA_FRAMERATE: Tăng framerate để video mượt hơn
+# 20 fps: Mượt và cân bằng tốt
+# 25 fps: Rất mượt nhưng nặng hơn
+CAMERA_FRAMERATE = 20  # Tăng lên 20 FPS để video mượt hơn
 
 # Video File Configuration (set to None to use camera, or provide path to local video file)
 VIDEO_FILE_PATH = None # e.g., 'path/to/video.mp4'
@@ -56,13 +53,6 @@ MODEL_PATH = 'best.onnx'  # Dùng model custom với 11 classes
 # Model best.onnx yêu cầu input size 640x640
 INPUT_W_SIZE = 640
 INPUT_H_SIZE = 640
-INPUT_SIZE = 640
-
-# Rate limiting configuration
-DETECTION_SEND_DELAY = 1  # Delay in seconds between sending detections to server
-
-# Tracking configuration
-TRACK_TIMEOUT = 5  # Timeout in seconds for object reappearance to trigger send
 
 # Class names for the model
 # CLASS_NAMES: COCO dataset (80 classes) - dùng cho model mặc định
@@ -86,7 +76,6 @@ CLASS_NAMES = [
 CLASS_NAMES2 = ['tree', 'drone', 'truck', 'motorcycle', 'crane', 'livestock', 'pole', 'fire', 'smoke', 'kite', 'person']
 # Create directories if they don't exist
 os.makedirs(IMAGES_DIR, exist_ok=True)
-# os.makedirs(SERVER_IMAGES_DIR, exist_ok=True) #no need server image folder in client folder
 
 # Client Configuration (for identification when sending to server)
 CLIENT_NAME = 'raspberry_pi_1'  # Unique name for this client
@@ -94,9 +83,6 @@ CLIENT_LATITUDE = None  # GPS latitude (optional)
 CLIENT_LONGITUDE = None  # GPS longitude (optional)
 
 # Server polling configuration (kiểm tra thay đổi từ server)
-# Cấu hình “restart ngay lập tức” khi web đổi chất lượng/IP/ROI:
 POLL_INTERVAL = 2          # Kiểm tra mỗi 2 giây
-POLL_DEBOUNCE_COUNT = 1    # Thấy giá trị mới là áp dụng ngay (không chờ lặp)
-POLL_COOLDOWN = 0          # Không chờ cooldown sau khi restart
 POLL_MAX_CHECKS = 0        # 0 = chạy liên tục (không giới hạn số lần kiểm tra)
 ENABLE_AUTO_RESTART = True  # Tự động restart khi có thay đổi IP/ROI/subtype

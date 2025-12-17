@@ -24,13 +24,28 @@ def _load_onnx_session():
 
     session_options = ort.SessionOptions()
     session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-
+    
+    # GIỚI HẠN SỐ THREAD để điều khiển mức sử dụng CPU
+    # intra_op_num_threads: số thread trong 1 operation (gần tương đương số core dùng cho ONNX)
+    # inter_op_num_threads: số thread giữa các operations
+    intra = getattr(config, "ONNX_INTRA_THREADS", 2)  # đề xuất: 2 core logic
+    inter = getattr(config, "ONNX_INTER_THREADS", 1)  # để 1 để tránh overhead
+    session_options.intra_op_num_threads = intra
+    session_options.inter_op_num_threads = inter
+    
+    # Dùng SEQUENTIAL để tránh overhead parallel phức tạp, đủ cho 2 thread
+    session_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+    
     session = ort.InferenceSession(
         onnx_path,
         providers=["CPUExecutionProvider"],
         sess_options=session_options,
     )
     input_name = session.get_inputs()[0].name
+    print(
+        f"✅ ONNX model loaded with intra={session_options.intra_op_num_threads}, "
+        f"inter={session_options.inter_op_num_threads} thread(s)"
+    )
     return session, input_name
 
 
@@ -141,6 +156,8 @@ def detection_process(
             try:
                 frame = q.get(timeout=1.0)
             except Exception:
+                # Không có frame, sleep rất nhỏ để giảm CPU khi idle nhưng không làm chậm
+                time.sleep(0.001)
                 continue
 
             if frame is None or frame.size == 0:
@@ -162,7 +179,7 @@ def detection_process(
             frame_h, frame_w = frame.shape[:2]
             frame_original = frame.copy()
 
-            # Bỏ qua frame nếu dùng FRAME_SKIP
+            # Bỏ qua frame nếu dùng FRAME_SKIP (nhưng FRAME_SKIP=1 nên không skip)
             if FRAME_SKIP > 1 and (frame_count % FRAME_SKIP) != 0:
                 # Vẫn có thể gửi processed frame để web không bị đen
                 send_processed_frame(frame_original)
@@ -186,6 +203,7 @@ def detection_process(
 
             try:
                 outputs = session.run(None, {input_name: input_tensor})
+                # Bỏ sleep để tăng FPS tối đa (detect mọi frame)
             except Exception as e:
                 print(f"❌ ONNX inference error: {e}")
                 continue
@@ -352,7 +370,8 @@ def detection_process(
             # Gửi detection lên server theo TIME_BETWEEN_SEND (chưa áp dụng cooldown IoU)
             now = time.time()
             if now - last_send_time >= TIME_BETWEEN_SEND and not not_sent:
-                timestamp = datetime.utcnow()
+                # Dùng thời gian local có timezone để hiển thị đúng ngày/giờ trên Dashboard
+                timestamp = datetime.now().astimezone()
                 image_filename = timestamp.strftime("%Y%m%d_%H%M%S_%f") + ".jpg"
                 image_path = os.path.join(config.IMAGES_DIR, image_filename)
                 try:
@@ -389,9 +408,12 @@ def detection_process(
                 if cv2.waitKey(1) & 0xFF == 27:
                     stop_event.set()
                     break
+            
+            # Bỏ sleep để tăng FPS tối đa (detect mọi frame)
 
         except Exception as e:
             print(f"Detection process error: {e}")
+            time.sleep(0.001)
             continue
 
     # Cleanup
