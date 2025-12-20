@@ -77,6 +77,15 @@ node_modules/
 videotest/
 **/videotest/
 
+# Video recordings (large files - should not be committed)
+recordings/
+**/recordings/
+**/recordings/**/*
+*.mp4
+*.avi
+*.mov
+*.mkv
+
 # Service files (system-specific)
 *.service
 
