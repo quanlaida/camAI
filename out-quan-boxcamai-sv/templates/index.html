@@ -7,6 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css?v={{ version }}">
 </head>
 <body>
@@ -19,59 +21,118 @@
                 <button class="tab-btn" data-tab="playback">Playback</button>
             </nav>
             <div class="stats">
-                <div class="stat-card">
-                    <h3>Total Detections</h3>
-                    <div class="stat-value" id="total-detections">0</div>
+                <div class="stat-card bg-white backdrop-blur-sm p-5 rounded-2xl text-center transition-all duration-300 border border-gray-200 cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-1 hover:bg-gray-50">
+                    <h3 class="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">Total Detections</h3>
+                    <div class="stat-value text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent" id="total-detections">0</div>
                 </div>
-                <div class="stat-card">
-                    <h3>Recent (24h)</h3>
-                    <div class="stat-value" id="recent-detections">0</div>
+                <div class="stat-card bg-white backdrop-blur-sm p-5 rounded-2xl text-center transition-all duration-300 border border-gray-200 cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-1 hover:bg-gray-50">
+                    <h3 class="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">Recent (24h)</h3>
+                    <div class="stat-value text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent" id="recent-detections">0</div>
                 </div>
-                <div class="stat-card">
-                    <h3>Active Clients</h3>
-                    <div class="stat-value" id="active-clients">0</div>
+                <div class="stat-card bg-white backdrop-blur-sm p-5 rounded-2xl text-center transition-all duration-300 border border-gray-200 cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-1 hover:bg-gray-50">
+                    <h3 class="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">Active Clients</h3>
+                    <div class="stat-value text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent" id="active-clients">0</div>
                 </div>
-                <div class="stat-card">
-                    <h3>Active Classes</h3>
-                    <div class="stat-value" id="active-classes">0</div>
+                <div class="stat-card bg-white backdrop-blur-sm p-5 rounded-2xl text-center transition-all duration-300 border border-gray-200 cursor-pointer shadow-sm hover:shadow-lg hover:-translate-y-1 hover:bg-gray-50">
+                    <h3 class="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">Active Classes</h3>
+                    <div class="stat-value text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent" id="active-classes">0</div>
                 </div>
             </div>
         </header>
 
-        <div class="controls">
+        <div class="controls bg-gradient-to-br from-white via-indigo-50/30 to-purple-50/30 rounded-2xl shadow-lg border border-indigo-100/50 backdrop-blur-sm">
             <div class="filter-controls" id="detections-controls">
-                <label for="client-filter">Filter by Client:</label>
-                <select id="client-filter">
-                    <option value="">All Clients</option>
-                </select>
-                <label for="class-filter">Filter by Class:</label>
-                <select id="class-filter">
-                    <option value="">All Classes</option>
-                </select>
-                <label for="limit-select">Show:</label>
-                <select id="limit-select">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-                <button id="refresh-btn">Refresh</button>
+                <div class="flex items-center gap-2">
+                    <span class="text-indigo-600">🔍</span>
+                    <label for="client-filter" class="font-bold text-gray-800 text-sm">Filter by Client:</label>
+                </div>
+                <div class="custom-dropdown relative group">
+                    <button type="button" id="client-filter-btn" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-semibold bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 hover:border-gray-300 hover:bg-gray-50 shadow-sm text-left flex items-center justify-between text-gray-800">
+                        <span id="client-filter-text">All Clients</span>
+                        <span class="text-gray-500">▼</span>
+                    </button>
+                    <div id="client-filter-menu" class="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-xl border-2 border-gray-200 max-h-60 overflow-y-auto opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                        <div class="p-1">
+                            <div class="dropdown-option px-4 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm font-medium" data-value="">All Clients</div>
+                        </div>
+                    </div>
+                    <select id="client-filter" class="hidden">
+                        <option value="">All Clients</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-purple-600">📋</span>
+                    <label for="class-filter" class="font-bold text-gray-800 text-sm">Filter by Class:</label>
+                </div>
+                <div class="custom-dropdown relative group">
+                    <button type="button" id="class-filter-btn" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-semibold bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 hover:border-gray-300 hover:bg-gray-50 shadow-sm text-left flex items-center justify-between text-gray-800">
+                        <span id="class-filter-text">All Classes</span>
+                        <span class="text-gray-500">▼</span>
+                    </button>
+                    <div id="class-filter-menu" class="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-xl border-2 border-gray-200 max-h-60 overflow-y-auto opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                        <div class="p-1">
+                            <div class="dropdown-option px-4 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm font-medium" data-value="">All Classes</div>
+                        </div>
+                    </div>
+                    <select id="class-filter" class="hidden">
+                        <option value="">All Classes</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-blue-600">📊</span>
+                    <label for="limit-select" class="font-bold text-gray-800 text-sm">Show:</label>
+                </div>
+                <div class="custom-dropdown relative group">
+                    <button type="button" id="limit-select-btn" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-semibold bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 hover:border-gray-300 hover:bg-gray-50 shadow-sm text-left flex items-center justify-between text-gray-800">
+                        <span id="limit-select-text">10</span>
+                        <span class="text-gray-500">▼</span>
+                    </button>
+                    <div id="limit-select-menu" class="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-xl border-2 border-gray-200 max-h-60 overflow-y-auto opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                        <div class="p-1">
+                            <div class="dropdown-option px-4 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm font-medium" data-value="10">10</div>
+                            <div class="dropdown-option px-4 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm font-medium" data-value="25">25</div>
+                            <div class="dropdown-option px-4 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm font-medium" data-value="50">50</div>
+                            <div class="dropdown-option px-4 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm font-medium" data-value="100">100</div>
+                        </div>
+                    </div>
+                    <select id="limit-select" class="hidden">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+                <button id="refresh-btn" class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl hover:from-indigo-700 hover:via-purple-700 hover:to-indigo-800 transition-all duration-300 transform hover:-translate-y-1 flex items-center gap-2">
+                    <span>🔄</span>
+                    <span>Refresh</span>
+                </button>
             </div>
             <div class="client-controls" id="clients-controls" style="display: none;">
-                <button id="add-client-btn" class="btn-primary">Add New Client</button>
-                <button id="refresh-clients-btn">Refresh Clients</button>
+                <button id="add-client-btn" class="btn-primary px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:-translate-y-0.5">Add New Client</button>
+                <button id="refresh-clients-btn" class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg hover:from-indigo-700 hover:to-indigo-800 transition-all duration-200 transform hover:-translate-y-0.5">Refresh Clients</button>
             </div>
+            <div class="border-t-2 border-indigo-200/50 my-4"></div>
             <div class="alert-controls" id="alert-controls" style="display: flex;">
-                <label for="alert-email-input">Email cảnh báo:</label>
-                <input type="email" id="alert-email-input" placeholder="your-email@gmail.com" style="padding: 8px 12px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 14px; width: 250px;">
-                <button id="save-email-btn" class="btn-primary">Lưu Email</button>
-                <button id="test-email-btn" class="btn-secondary" style="margin-left: 8px;">Test Email</button>
-                <span id="email-status" style="margin-left: 10px; font-weight: 600; color: #2ecc71;"></span>
-                <label style="margin-left: 15px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="email-enabled-checkbox" style="width: 18px; height: 18px; cursor: pointer;">
-                    <span>Bật cảnh báo email</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-green-600 text-lg">📧</span>
+                    <label for="alert-email-input" class="font-bold text-gray-800 text-sm">Email cảnh báo:</label>
+                </div>
+                <input type="email" id="alert-email-input" placeholder="your-email@gmail.com" class="px-4 py-2.5 border-2 border-indigo-200 rounded-xl text-sm font-medium bg-white/90 backdrop-blur-sm w-72 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 hover:border-indigo-400 hover:bg-white shadow-sm">
+                <button id="save-email-btn" class="btn-primary px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:-translate-y-1 flex items-center gap-2">
+                    <span>💾</span>
+                    <span>Lưu Email</span>
+                </button>
+                <button id="test-email-btn" class="btn-secondary ml-2 px-4 py-2.5 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg hover:from-gray-600 hover:to-gray-700 transition-all duration-300 transform hover:-translate-y-1 flex items-center gap-2">
+                    <span>✉️</span>
+                    <span>Test Email</span>
+                </button>
+                <span id="email-status" class="ml-3 px-3 py-1.5 bg-green-50 border-2 border-green-200 rounded-lg font-semibold text-green-700 text-sm shadow-sm"></span>
+                <label class="ml-4 flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" id="email-enabled-checkbox" class="w-5 h-5 cursor-pointer accent-indigo-600 rounded transition-all duration-200 group-hover:scale-110">
+                    <span class="text-sm font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">Bật cảnh báo email</span>
                 </label>
             </div>
+            <!-- Telegram settings được ẩn, cấu hình trong config.py -->
         </div>
 
         <!-- Detections Tab Content -->
@@ -81,9 +142,20 @@
                 <div class="detections-stream-panel">
                     <div class="stream-panel-header">
                         <h3>Live Video Stream</h3>
-                        <select id="detection-stream-client-select" class="stream-select">
-                            <option value="">Chọn client...</option>
-                        </select>
+                        <div class="custom-dropdown relative group">
+                            <button type="button" id="detection-stream-client-select-btn" class="px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-semibold bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 hover:border-gray-300 hover:bg-gray-50 shadow-sm text-left flex items-center justify-between text-gray-800">
+                                <span id="detection-stream-client-select-text">Chọn client...</span>
+                                <span class="text-gray-500">▼</span>
+                            </button>
+                            <div id="detection-stream-client-select-menu" class="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-xl border-2 border-gray-200 max-h-60 overflow-y-auto opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 right-0">
+                                <div class="p-1">
+                                    <div class="dropdown-option px-4 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm font-medium" data-value="">Chọn client...</div>
+                                </div>
+                            </div>
+                            <select id="detection-stream-client-select" class="hidden">
+                                <option value="">Chọn client...</option>
+                            </select>
+                        </div>
                     </div>
                     <div id="detection-stream-container" class="detection-stream-container">
                         <div class="stream-placeholder">
@@ -96,12 +168,17 @@
                 <div class="detections-list-panel">
                     <div class="detections-list-header">
                         <h3>Danh sách Detections</h3>
-                        <button id="detection-refresh-btn" class="btn-small">Refresh</button>
+                        <button id="delete-selected-btn" class="delete-selected-btn" style="display: none;" onclick="deleteSelectedDetections()">
+                            Xóa đã chọn
+                        </button>
                     </div>
                     <div class="detections-container">
                         <table id="detections-table">
                             <thead>
                                 <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this)">
+                                    </th>
                                     <th>Time</th>
                                     <th>Client</th>
                                     <th>Class</th>
@@ -115,10 +192,10 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="pagination">
-                        <button id="prev-page" disabled>Previous</button>
-                        <span id="page-info">Page 1</span>
-                        <button id="next-page">Next</button>
+                    <div class="pagination flex items-center justify-center gap-4">
+                        <button id="prev-page" disabled class="px-6 py-2.5 bg-gradient-to-r from-gray-400 to-gray-500 text-white rounded-xl font-bold text-sm shadow-md cursor-not-allowed opacity-60 disabled:from-gray-400 disabled:to-gray-500 disabled:text-white disabled:opacity-60 enabled:bg-gradient-to-r enabled:from-indigo-500 enabled:to-purple-600 enabled:opacity-100 enabled:cursor-pointer enabled:hover:shadow-xl enabled:hover:from-indigo-600 enabled:hover:to-purple-700 enabled:transition-all enabled:duration-300 enabled:transform enabled:hover:-translate-y-1">← Previous</button>
+                        <span id="page-info" class="px-6 py-2.5 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 rounded-xl font-bold text-sm border-2 border-indigo-200 shadow-sm">Page 1</span>
+                        <button id="next-page" class="px-6 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-xl hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-1">Next →</button>
                     </div>
                 </div>
             </div>
@@ -154,19 +231,55 @@
                 <div class="detections-stream-panel">
                     <div class="stream-panel-header">
                         <h3>Playback & Recording</h3>
-                        <select id="playback-client-select" class="stream-select">
-                            <option value="">Chọn client...</option>
-                        </select>
+                        <div class="custom-dropdown relative group">
+                            <button type="button" id="playback-client-select-btn" class="px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-semibold bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 hover:border-gray-300 hover:bg-gray-50 shadow-sm text-left flex items-center justify-between text-gray-800">
+                                <span id="playback-client-select-text">Chọn client...</span>
+                                <span class="text-gray-500">▼</span>
+                            </button>
+                            <div id="playback-client-select-menu" class="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-xl border-2 border-gray-200 max-h-60 overflow-y-auto opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 right-0">
+                                <div class="p-1">
+                                    <div class="dropdown-option px-4 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm font-medium" data-value="">Chọn client...</div>
+                                </div>
+                            </div>
+                            <select id="playback-client-select" class="hidden">
+                                <option value="">Chọn client...</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="playback-controls">
-                        <button id="start-recording-btn" class="btn-primary" disabled>Bắt đầu ghi</button>
-                        <button id="stop-recording-btn" class="btn-secondary" disabled>Dừng ghi</button>
+                    <div class="playback-controls" style="display: flex; flex-direction: column; gap: 15px;">
+                        <!-- Hàng 1: 3 nút -->
+                        <div style="display: flex; gap: 15px; align-items: center; width: 100%;">
+                            <button id="recording-toggle-btn" class="recording-toggle-btn px-4 py-2.5 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none" style="flex: 1; min-width: 0;" disabled>
+                                <span id="recording-toggle-text">Bắt đầu ghi</span>
+                            </button>
+                            <button id="recordings-filter-apply-btn" class="btn-small px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg font-semibold text-xs shadow-sm hover:shadow-md hover:from-indigo-700 hover:to-indigo-800 transition-all duration-200" style="flex: 1; min-width: 0; white-space: nowrap;">Áp dụng</button>
+                            <button id="recordings-filter-clear-btn" class="btn-small px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-lg font-semibold text-xs shadow-sm hover:shadow-md hover:from-gray-600 hover:to-gray-700 transition-all duration-200" style="flex: 1; min-width: 0; white-space: nowrap;">Xóa bộ lọc</button>
+                        </div>
+                        <!-- Hàng 2: Filter inputs -->
+                        <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: nowrap; overflow-x: auto;">
+                            <div style="display: flex; flex-direction: column; gap: 5px; flex-shrink: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #475569;">Từ ngày:</label>
+                                <input type="date" id="recordings-filter-date-from" class="filter-input" style="padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 13px; width: 150px;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px; flex-shrink: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #475569;">Đến ngày:</label>
+                                <input type="date" id="recordings-filter-date-to" class="filter-input" style="padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 13px; width: 150px;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px; flex-shrink: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #475569;">Từ giờ:</label>
+                                <input type="time" id="recordings-filter-time-from" class="filter-input" style="padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 13px; width: 120px;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 5px; flex-shrink: 0;">
+                                <label style="font-size: 12px; font-weight: 600; color: #475569;">Đến giờ:</label>
+                                <input type="time" id="recordings-filter-time-to" class="filter-input" style="padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 13px; width: 120px;">
+                            </div>
+                        </div>
                     </div>
                     <div id="playback-video-container" class="detection-stream-container">
                         <div id="playback-placeholder" class="stream-placeholder" style="display: flex;">
                             <p>Chọn video từ danh sách để phát</p>
                         </div>
-                        <video id="playback-video" controls style="display: none;">
+                        <video id="playback-video" controls preload="metadata" style="display: none; width: 100%; height: auto; max-width: 100%; margin-bottom: 0;">
                             Trình duyệt không hỗ trợ video.
                         </video>
                     </div>
@@ -176,14 +289,21 @@
                 <div class="detections-list-panel">
                     <div class="detections-list-header">
                         <h3>Danh sách Video đã ghi</h3>
-                        <button id="refresh-recordings-btn" class="btn-small">Refresh</button>
+                        <button id="refresh-recordings-btn" class="btn-small px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg font-semibold text-xs shadow-sm hover:shadow-md hover:from-indigo-700 hover:to-indigo-800 transition-all duration-200">Refresh</button>
                     </div>
                     <div class="detections-container">
                         <table id="recordings-table">
                             <thead>
                                 <tr>
-                                    <th>Ngày</th>
-                                    <th>File</th>
+                                    <th class="sortable" data-sort="date">
+                                        Ngày <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" data-sort="filename">
+                                        File <span class="sort-icon">⇅</span>
+                                    </th>
+                                    <th class="sortable" data-sort="size">
+                                        Kích thước <span class="sort-icon">⇅</span>
+                                    </th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>

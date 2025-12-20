@@ -219,10 +219,10 @@ def get_info():
         return None
 
 
-def check_server_updates(current_ip, current_roi, current_roi_regions_json, current_show_overlay, current_rtsp_subtype=None):
+def check_server_updates(current_ip, current_roi, current_roi_regions_json, current_show_overlay, current_is_detect_enabled, current_rtsp_subtype=None):
     """
     Kiểm tra xem có thay đổi từ server không
-    Returns: (ip_changed, roi_changed, overlay_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_rtsp_subtype) hoặc None nếu lỗi
+    Returns: (ip_changed, roi_changed, overlay_changed, detect_enabled_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_is_detect_enabled, new_rtsp_subtype) hoặc None nếu lỗi
     """
     try:
         client_info = get_info()
@@ -238,6 +238,7 @@ def check_server_updates(current_ip, current_roi, current_roi_regions_json, curr
         )
         new_roi_regions_json = client_info.get('roi_regions')
         new_show_overlay = client_info.get('show_roi_overlay', True)
+        new_is_detect_enabled = client_info.get('is_detect_enabled', True)
         # rtsp_subtype hiện không còn dùng cho client (luôn dùng subtype=1)
         new_rtsp_subtype = current_rtsp_subtype
         
@@ -257,22 +258,27 @@ def check_server_updates(current_ip, current_roi, current_roi_regions_json, curr
             roi_changed = True
         overlay_changed = (current_show_overlay is not None and new_show_overlay is not None and current_show_overlay != new_show_overlay)
         
+        # So sánh is_detect_enabled
+        detect_enabled_changed = (current_is_detect_enabled is not None and new_is_detect_enabled is not None and current_is_detect_enabled != new_is_detect_enabled)
+        
         # Không theo dõi subtype nữa
         subtype_changed = False
 
         # Debug log (giảm spam: chỉ log khi có thay đổi)
-        if ip_changed or roi_changed or overlay_changed or subtype_changed:
-            print(f"🔍 Change detected - IP: {ip_changed}, ROI: {roi_changed}, Overlay: {overlay_changed}, Subtype: {subtype_changed}")
+        if ip_changed or roi_changed or overlay_changed or detect_enabled_changed or subtype_changed:
+            print(f"🔍 Change detected - IP: {ip_changed}, ROI: {roi_changed}, Overlay: {overlay_changed}, Detect Enabled: {detect_enabled_changed}, Subtype: {subtype_changed}")
             if roi_changed:
                 print(f"   ROI regions changed: {current_roi_regions_json} -> {new_roi_regions_json}")
             if overlay_changed:
                 print(f"   show_roi_overlay: {current_show_overlay} -> {new_show_overlay}")
+            if detect_enabled_changed:
+                print(f"   is_detect_enabled: {current_is_detect_enabled} -> {new_is_detect_enabled}")
             if subtype_changed:
                 quality_old = "chất lượng cao" if current_rtsp_subtype == 0 else "chất lượng thấp"
                 quality_new = "chất lượng cao" if new_rtsp_subtype == 0 else "chất lượng thấp"
                 print(f"   rtsp_subtype: {current_rtsp_subtype} ({quality_old}) -> {new_rtsp_subtype} ({quality_new})")
         
-        return (ip_changed, roi_changed, overlay_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_rtsp_subtype)
+        return (ip_changed, roi_changed, overlay_changed, detect_enabled_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_is_detect_enabled, new_rtsp_subtype)
     
     except Exception as e:
         print(f"❌ Error checking server updates: {e}")
@@ -281,10 +287,10 @@ def check_server_updates(current_ip, current_roi, current_roi_regions_json, curr
         return None
 
 
-def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regions_json, initial_show_overlay, initial_rtsp_subtype=None):
+def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regions_json, initial_show_overlay, initial_is_detect_enabled, initial_rtsp_subtype=None):
     """
     Thread chạy nền để kiểm tra thay đổi từ server (chỉ kiểm tra MỘT LẦN rồi dừng).
-    Nếu phát hiện thay đổi IP, ROI, hoặc rtsp_subtype, tự động restart service.
+    Nếu phát hiện thay đổi IP, ROI, is_detect_enabled, hoặc rtsp_subtype, tự động restart service.
     Tránh việc restart liên tục do polling lặp.
     """
     import time
@@ -298,12 +304,14 @@ def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regio
     current_roi = initial_roi
     current_roi_regions_json = initial_roi_regions_json
     current_show_overlay = initial_show_overlay
+    current_is_detect_enabled = initial_is_detect_enabled
     current_rtsp_subtype = None  # Không dùng subtype nữa
     poll_count = 0
     
     print(f"🔄 Server polling thread started (checking every {config.POLL_INTERVAL}s)")
     print(f"   Initial IP: {current_ip}, Initial ROI: {current_roi}")
     print(f"   Initial ROI regions: {current_roi_regions_json}")
+    print(f"   Initial is_detect_enabled: {current_is_detect_enabled}")
     print(f"   RTSP subtype is fixed to 1 (low quality) on client")
     
     # Đợi interval trước khi check (nếu cần)
@@ -323,7 +331,7 @@ def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regio
             print(f"🔍 Polling server... (check #{poll_count})")
             
             # Kiểm tra thay đổi
-            result = check_server_updates(current_ip, current_roi, current_roi_regions_json, current_show_overlay, current_rtsp_subtype)
+            result = check_server_updates(current_ip, current_roi, current_roi_regions_json, current_show_overlay, current_is_detect_enabled, current_rtsp_subtype)
             
             if result is None:
                 print("⚠️ Could not check server updates, will retry next time")
@@ -333,7 +341,7 @@ def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regio
                     break
                 continue
             
-            ip_changed, roi_changed, overlay_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_rtsp_subtype = result
+            ip_changed, roi_changed, overlay_changed, detect_enabled_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_is_detect_enabled, new_rtsp_subtype = result
             
             # Phát hiện thay đổi - CHỈ restart nếu thực sự có thay đổi
             if ip_changed:
@@ -384,6 +392,7 @@ def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regio
             current_rtsp_subtype = new_rtsp_subtype
             current_roi_regions_json = new_roi_regions_json
             current_show_overlay = new_show_overlay
+            current_is_detect_enabled = new_is_detect_enabled
             
             if poll_count % 10 == 0:  # Log mỗi 10 lần
                 print(f"✅ No critical changes detected (checked {poll_count} times)")
@@ -528,7 +537,7 @@ def main():
             initial_rtsp_subtype = client_info.get('rtsp_subtype', 0)
         polling_thread = threading.Thread(
             target=server_polling_thread,
-            args=(stop_event, ip_address, current_roi, roi_regions_json, show_roi_overlay, initial_rtsp_subtype),
+            args=(stop_event, ip_address, current_roi, roi_regions_json, show_roi_overlay, is_detect_enabled, initial_rtsp_subtype),
             daemon=True
         )
         polling_thread.start()

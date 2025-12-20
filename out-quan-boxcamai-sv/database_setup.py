@@ -57,6 +57,8 @@ class AlertSettings(Base):
     id = Column(Integer, primary_key=True)
     alert_email = Column(String(255), nullable=True)  # Email để nhận cảnh báo
     email_enabled = Column(Boolean, default=False, nullable=False)
+    telegram_chat_id = Column(String(50), nullable=True)  # Telegram Chat ID để nhận cảnh báo
+    telegram_enabled = Column(Boolean, default=False, nullable=False)  # Bật/tắt cảnh báo Telegram
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

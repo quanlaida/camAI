@@ -28,6 +28,13 @@ function initializeApp() {
     const refreshClientsBtn = document.getElementById('refresh-clients-btn');
     
     if (refreshBtn) refreshBtn.addEventListener('click', refreshData);
+    
+    // Custom dropdown handlers
+    setupCustomDropdown('class-filter', handleFilterChange);
+    setupCustomDropdown('client-filter', handleClientFilterChange);
+    setupCustomDropdown('limit-select', handleLimitChange);
+    
+    // Keep hidden select for compatibility
     if (classFilter) classFilter.addEventListener('change', handleFilterChange);
     if (clientFilter) clientFilter.addEventListener('change', handleClientFilterChange);
     if (limitSelect) limitSelect.addEventListener('change', handleLimitChange);
@@ -41,20 +48,30 @@ function initializeApp() {
         btn.addEventListener('click', (e) => switchTab(e.target.dataset.tab));
     });
 
-    // Detection page stream selector
+    // Detection page stream selector - setup custom dropdown
+    setupCustomDropdown('detection-stream-client-select', () => {
+        const select = document.getElementById('detection-stream-client-select');
+        if (select) {
+            const event = new Event('change');
+            select.dispatchEvent(event);
+        }
+    });
+    
     const detectionStreamSelect = document.getElementById('detection-stream-client-select');
     if (detectionStreamSelect) {
         detectionStreamSelect.addEventListener('change', handleDetectionStreamChange);
     }
     
-    // Detection page refresh button
-    const detectionRefreshBtn = document.getElementById('detection-refresh-btn');
-    if (detectionRefreshBtn) {
-        detectionRefreshBtn.addEventListener('click', () => {
-            loadDetections();
-            loadDetectionStreamClients();
-        });
-    }
+    // Playback client selector - setup custom dropdown
+    setupCustomDropdown('playback-client-select', () => {
+        const select = document.getElementById('playback-client-select');
+        if (select) {
+            const event = new Event('change');
+            select.dispatchEvent(event);
+        }
+    });
+    
+    // Detection page refresh button - đã hợp nhất vào refresh-btn ở trên
 
     // Set up modals first
     setupModal();
@@ -86,6 +103,8 @@ function initializeApp() {
     if (testEmailBtn) {
         testEmailBtn.addEventListener('click', testEmail);
     }
+    
+    // Telegram settings được ẩn, cấu hình trong config.py
 
     // Load initial data - luôn trigger switchTab để đảm bảo load đúng
     // Vì tab detection là tab mặc định, cần trigger switchTab để load data
@@ -110,19 +129,172 @@ function setupModal() {
     };
 }
 
+function setupCustomDropdown(selectId, onChangeCallback) {
+    const select = document.getElementById(selectId);
+    const btn = document.getElementById(selectId + '-btn');
+    const menu = document.getElementById(selectId + '-menu');
+    const textSpan = document.getElementById(selectId + '-text');
+    
+    if (!select || !btn || !menu || !textSpan) return;
+    
+    // Populate menu from select options
+    const updateMenu = () => {
+        const options = select.querySelectorAll('option');
+        const menuContainer = menu.querySelector('.p-1') || menu;
+        menuContainer.innerHTML = '';
+        
+        options.forEach(option => {
+            const div = document.createElement('div');
+            div.className = 'dropdown-option px-4 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm font-medium';
+            div.textContent = option.textContent;
+            div.setAttribute('data-value', option.value);
+            
+            if (option.value === select.value) {
+                div.classList.add('active');
+            }
+            
+            div.addEventListener('click', () => {
+                select.value = option.value;
+                textSpan.textContent = option.textContent;
+                
+                // Update active state
+                menuContainer.querySelectorAll('.dropdown-option').forEach(opt => {
+                    opt.classList.remove('active');
+                });
+                div.classList.add('active');
+                
+                // Trigger change event
+                select.dispatchEvent(new Event('change'));
+                if (onChangeCallback) onChangeCallback();
+            });
+            
+            menuContainer.appendChild(div);
+        });
+    };
+    
+    // Initial update
+    updateMenu();
+    
+    // Watch for changes to select (when populated by other code)
+    const observer = new MutationObserver(updateMenu);
+    observer.observe(select, { childList: true, subtree: true });
+    
+    // Update text when select value changes
+    select.addEventListener('change', () => {
+        const selectedOption = select.querySelector(`option[value="${select.value}"]`);
+        if (selectedOption) {
+            textSpan.textContent = selectedOption.textContent;
+            updateMenu();
+        }
+    });
+}
+
+function updateCustomDropdownMenu(selectId) {
+    const select = document.getElementById(selectId);
+    const menu = document.getElementById(selectId + '-menu');
+    if (!select || !menu) return;
+    
+    const options = select.querySelectorAll('option');
+    const menuContainer = menu.querySelector('.p-1') || menu;
+    menuContainer.innerHTML = '';
+    
+    options.forEach(option => {
+        const div = document.createElement('div');
+        div.className = 'dropdown-option px-4 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm font-medium';
+        div.textContent = option.textContent;
+        div.setAttribute('data-value', option.value);
+        
+        if (option.value === select.value) {
+            div.classList.add('active');
+        }
+        
+        div.addEventListener('click', () => {
+            select.value = option.value;
+            const textSpan = document.getElementById(selectId + '-text');
+            if (textSpan) textSpan.textContent = option.textContent;
+            
+            menuContainer.querySelectorAll('.dropdown-option').forEach(opt => {
+                opt.classList.remove('active');
+            });
+            div.classList.add('active');
+            
+            select.dispatchEvent(new Event('change'));
+        });
+        
+        menuContainer.appendChild(div);
+    });
+}
+
+function updateCustomDropdownText(selectId, text) {
+    const textSpan = document.getElementById(selectId + '-text');
+    if (textSpan) {
+        textSpan.textContent = text;
+    }
+}
+
+function updateCustomDropdownMenu(selectId) {
+    const select = document.getElementById(selectId);
+    const menu = document.getElementById(selectId + '-menu');
+    if (!select || !menu) return;
+    
+    const options = select.querySelectorAll('option');
+    const menuContainer = menu.querySelector('.p-1') || menu;
+    menuContainer.innerHTML = '';
+    
+    options.forEach(option => {
+        const div = document.createElement('div');
+        div.className = 'dropdown-option px-4 py-2 hover:bg-gray-100 rounded-lg cursor-pointer text-sm font-medium';
+        div.textContent = option.textContent;
+        div.setAttribute('data-value', option.value);
+        
+        if (option.value === select.value) {
+            div.classList.add('active');
+        }
+        
+        div.addEventListener('click', () => {
+            select.value = option.value;
+            const textSpan = document.getElementById(selectId + '-text');
+            if (textSpan) textSpan.textContent = option.textContent;
+            
+            menuContainer.querySelectorAll('.dropdown-option').forEach(opt => {
+                opt.classList.remove('active');
+            });
+            div.classList.add('active');
+            
+            select.dispatchEvent(new Event('change'));
+        });
+        
+        menuContainer.appendChild(div);
+    });
+}
+
+function updateCustomDropdownText(selectId, text) {
+    const textSpan = document.getElementById(selectId + '-text');
+    if (textSpan) {
+        textSpan.textContent = text;
+    }
+}
+
 function handleFilterChange() {
-    currentFilter = document.getElementById('class-filter').value;
+    const select = document.getElementById('class-filter');
+    currentFilter = select ? select.value : '';
     currentPage = 1;
+    updatePageInfo();
     loadDetections();
 }
 
 function handleClientFilterChange() {
-    currentClientFilter = document.getElementById('client-filter').value;
+    const select = document.getElementById('client-filter');
+    currentClientFilter = select ? select.value : '';
     currentPage = 1;
+    updatePageInfo();
     loadDetections();
 }
 
 function switchTab(tabName) {
+    // Update current tab
+    currentTab = tabName;
+    
     // Update tab buttons
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
@@ -134,6 +306,11 @@ function switchTab(tabName) {
         content.style.display = 'none';
     });
     document.getElementById(`${tabName}-tab`).style.display = 'block';
+    
+    // Dừng polling nếu rời khỏi tab playback
+    if (tabName !== 'playback') {
+        stopRecordingStatusPolling();
+    }
 
     // Update controls
     document.getElementById('detections-controls').style.display = tabName === 'detections' ? 'flex' : 'none';
@@ -168,19 +345,23 @@ function switchTab(tabName) {
 }
 
 function handleLimitChange() {
-    detectionsPerPage = parseInt(document.getElementById('limit-select').value);
+    const select = document.getElementById('limit-select');
+    detectionsPerPage = select ? parseInt(select.value) : 10;
     currentPage = 1;
+    updatePageInfo();
     loadDetections();
 }
 
 function refreshData() {
-    // Tối ưu: chỉ refresh data của tab hiện tại, không refresh tất cả
+    // Refresh data của tab hiện tại
     if (currentTab === 'detections') {
         loadStats();
         loadDetections();
-        // Không load clients mỗi lần refresh (chỉ load khi cần)
+        loadDetectionStreamClients(); // Refresh cả stream clients selector
     } else if (currentTab === 'clients') {
         loadClients();
+    } else if (currentTab === 'playback') {
+        loadPlaybackClients();
     }
 }
 
@@ -207,25 +388,34 @@ async function loadPlaybackClients() {
             select.appendChild(option);
         });
 
+        // Update custom dropdown menu
+        updateCustomDropdownMenu('playback-client-select');
+        
+        // Update text if value exists
+        if (currentValue) {
+            const selectedOption = select.querySelector(`option[value="${currentValue}"]`);
+            if (selectedOption) {
+                updateCustomDropdownText('playback-client-select', selectedOption.textContent);
+            }
+        }
+
         // Gắn sự kiện nếu chưa gắn
         if (!select._playbackBound) {
             select.addEventListener('change', handlePlaybackClientChange);
             select._playbackBound = true;
         }
 
-        // Nút start/stop recording
-        const startBtn = document.getElementById('start-recording-btn');
-        const stopBtn = document.getElementById('stop-recording-btn');
+        // Nút toggle recording
+        const toggleBtn = document.getElementById('recording-toggle-btn');
         const refreshBtn = document.getElementById('refresh-recordings-btn');
 
-        if (startBtn && !startBtn._bound) {
-            startBtn.addEventListener('click', startRecordingForSelectedClient);
-            startBtn._bound = true;
+        if (toggleBtn && !toggleBtn._bound) {
+            toggleBtn.addEventListener('click', toggleRecording);
+            toggleBtn._bound = true;
         }
-        if (stopBtn && !stopBtn._bound) {
-            stopBtn.addEventListener('click', stopRecordingForSelectedClient);
-            stopBtn._bound = true;
-        }
+        
+        // Setup filter controls
+        setupRecordingsFilters();
         if (refreshBtn && !refreshBtn._bound) {
             refreshBtn.addEventListener('click', () => {
                 const cid = select.value;
@@ -240,8 +430,16 @@ async function loadPlaybackClients() {
             handlePlaybackClientChange({ target: select });
         }
 
-        // Cập nhật trạng thái nút start theo việc có client hay không
-        if (startBtn) startBtn.disabled = !select.value;
+        // Cập nhật trạng thái nút toggle theo việc có client hay không
+        if (toggleBtn) {
+            toggleBtn.disabled = !select.value;
+            // Kiểm tra trạng thái recording thực tế từ server nếu có client được chọn
+            if (select.value) {
+                checkRecordingStatus(select.value);
+            } else {
+                updateRecordingToggleState(false); // Reset về trạng thái "Bắt đầu ghi" nếu không có client
+            }
+        }
 
         return clients;
     } catch (error) {
@@ -252,14 +450,17 @@ async function loadPlaybackClients() {
 
 function handlePlaybackClientChange(event) {
     const clientId = event.target.value;
-    const startBtn = document.getElementById('start-recording-btn');
-    const stopBtn = document.getElementById('stop-recording-btn');
+    const toggleBtn = document.getElementById('recording-toggle-btn');
 
     if (!clientId) {
-        if (startBtn) startBtn.disabled = true;
-        if (stopBtn) stopBtn.disabled = true;
+        if (toggleBtn) {
+            toggleBtn.disabled = true;
+            updateRecordingToggleState(false); // Reset về trạng thái "Bắt đầu ghi"
+        }
+        // Dừng polling khi không có client
+        stopRecordingStatusPolling();
         document.getElementById('recordings-body').innerHTML =
-            '<tr><td colspan=\"3\" style=\"text-align:center;color:#7f8c8d;\">Chọn client để xem danh sách video</td></tr>';
+            '<tr><td colspan=\"4\" style=\"text-align:center;color:#7f8c8d;\">Chọn client để xem danh sách video</td></tr>';
         const video = document.getElementById('playback-video');
         const placeholder = document.getElementById('playback-placeholder');
         if (video) {
@@ -273,9 +474,151 @@ function handlePlaybackClientChange(event) {
         return;
     }
 
-    if (startBtn) startBtn.disabled = false;
-    if (stopBtn) stopBtn.disabled = false;
+    if (toggleBtn) {
+        toggleBtn.disabled = false;
+        // Kiểm tra trạng thái recording thực tế từ server
+        checkRecordingStatus(clientId);
+        // Bắt đầu polling trạng thái recording
+        startRecordingStatusPolling(clientId);
+    }
     loadRecordings(clientId);
+}
+
+// Biến để track trạng thái recording
+let isRecording = false;
+let recordingStatusInterval = null;
+
+// Biến để track sort state cho recordings
+let recordingsSortColumn = 'date'; // 'date', 'filename', 'size'
+let recordingsSortDirection = 'desc'; // 'asc' or 'desc'
+
+// Kiểm tra trạng thái recording từ server
+async function checkRecordingStatus(clientId) {
+    if (!clientId) return;
+    
+    try {
+        const res = await fetch(`/api/recordings/status/${clientId}`);
+        if (res.ok) {
+            const data = await res.json();
+            updateRecordingToggleState(data.is_recording);
+            // Cập nhật indicator trên stream
+            updateRecordingIndicator(clientId, data.is_recording);
+            return data.is_recording;
+        } else {
+            // Nếu không lấy được, mặc định là false
+            updateRecordingToggleState(false);
+            updateRecordingIndicator(clientId, false);
+            return false;
+        }
+    } catch (e) {
+        console.error('Error checking recording status:', e);
+        // Nếu lỗi, mặc định là false
+        updateRecordingToggleState(false);
+        updateRecordingIndicator(clientId, false);
+        return false;
+    }
+}
+
+// Kiểm tra trạng thái recording cho stream (không cập nhật toggle button)
+async function checkRecordingStatusForStream(clientId) {
+    if (!clientId) return;
+    
+    try {
+        const res = await fetch(`/api/recordings/status/${clientId}`);
+        if (res.ok) {
+            const data = await res.json();
+            updateRecordingIndicator(clientId, data.is_recording);
+        } else {
+            updateRecordingIndicator(clientId, false);
+        }
+    } catch (e) {
+        console.error('Error checking recording status for stream:', e);
+        updateRecordingIndicator(clientId, false);
+    }
+}
+
+// Cập nhật recording indicator trên stream
+function updateRecordingIndicator(clientId, isRecording) {
+    const indicator = document.getElementById(`recording-indicator-${clientId}`);
+    if (indicator) {
+        indicator.style.display = isRecording ? 'flex' : 'none';
+    }
+}
+
+// Bắt đầu polling trạng thái recording khi ở tab playback
+function startRecordingStatusPolling(clientId) {
+    // Dừng polling cũ nếu có
+    stopRecordingStatusPolling();
+    
+    if (!clientId) return;
+    
+    // Kiểm tra ngay lập tức
+    checkRecordingStatus(clientId);
+    
+    // Polling mỗi 2 giây
+    recordingStatusInterval = setInterval(() => {
+        const select = document.getElementById('playback-client-select');
+        const currentClientId = select ? select.value : null;
+        if (currentClientId && currentTab === 'playback') {
+            checkRecordingStatus(currentClientId);
+        } else {
+            stopRecordingStatusPolling();
+        }
+        
+        // Cũng cập nhật indicator trên stream nếu đang ở tab detections
+        if (currentTab === 'detections') {
+            const streamSelect = document.getElementById('detection-stream-client-select');
+            const streamClientId = streamSelect ? streamSelect.value : null;
+            if (streamClientId) {
+                checkRecordingStatusForStream(streamClientId);
+            }
+        }
+    }, 2000);
+}
+
+// Dừng polling trạng thái recording
+function stopRecordingStatusPolling() {
+    if (recordingStatusInterval) {
+        clearInterval(recordingStatusInterval);
+        recordingStatusInterval = null;
+    }
+}
+
+function updateRecordingToggleState(recording) {
+    const toggleBtn = document.getElementById('recording-toggle-btn');
+    const toggleText = document.getElementById('recording-toggle-text');
+    
+    if (!toggleBtn || !toggleText) return;
+    
+    isRecording = recording;
+    
+    if (recording) {
+        // Trạng thái đang ghi - hiển thị "Dừng ghi" với màu đỏ
+        toggleBtn.className = 'recording-toggle-btn px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none';
+        toggleBtn.style.width = 'auto';
+        toggleBtn.style.minWidth = '150px';
+        toggleText.textContent = 'Dừng ghi';
+    } else {
+        // Trạng thái chưa ghi - hiển thị "Bắt đầu ghi" với màu xanh
+        toggleBtn.className = 'recording-toggle-btn px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none';
+        toggleBtn.style.width = 'auto';
+        toggleBtn.style.minWidth = '150px';
+        toggleText.textContent = 'Bắt đầu ghi';
+    }
+}
+
+async function toggleRecording() {
+    const select = document.getElementById('playback-client-select');
+    const clientId = select ? select.value : null;
+    if (!clientId) return;
+
+    if (isRecording) {
+        // Đang ghi -> Dừng ghi
+        await stopRecordingForSelectedClient();
+    } else {
+        // Chưa ghi -> Bắt đầu ghi
+        await startRecordingForSelectedClient();
+    }
 }
 
 async function startRecordingForSelectedClient() {
@@ -291,10 +634,13 @@ async function startRecordingForSelectedClient() {
         });
         const data = await res.json();
         if (!res.ok) {
-            alert(`Lỗi khi bắt đầu ghi: ${data.error || res.status}`);
+            const errorMsg = data.detail ? `${data.error}\n\n${data.detail}` : data.error || `Lỗi ${res.status}`;
+            alert(errorMsg);
             return;
         }
         showToastNotification('Đã bắt đầu ghi video', 'info');
+        // Kiểm tra lại trạng thái từ server để đảm bảo đồng bộ
+        setTimeout(() => checkRecordingStatus(clientId), 500);
     } catch (e) {
         console.error('startRecording error:', e);
         alert('Lỗi khi bắt đầu ghi video');
@@ -318,11 +664,182 @@ async function stopRecordingForSelectedClient() {
             return;
         }
         showToastNotification('Đã dừng ghi video', 'info');
-        // Sau khi dừng thì refresh danh sách file
-        loadRecordings(clientId);
+        // Kiểm tra lại trạng thái từ server để đảm bảo đồng bộ
+        setTimeout(() => {
+            checkRecordingStatus(clientId);
+            // Sau khi dừng thì refresh danh sách file
+            loadRecordings(clientId);
+        }, 500);
     } catch (e) {
         console.error('stopRecording error:', e);
         alert('Lỗi khi dừng ghi video');
+    }
+}
+
+// Filter recordings function
+function filterRecordings(list) {
+    if (!recordingsFilter.dateFrom && !recordingsFilter.dateTo && 
+        !recordingsFilter.timeFrom && !recordingsFilter.timeTo) {
+        return list; // No filter applied
+    }
+    
+    return list.filter(rec => {
+        // Parse date from date_folder (YYYYMMDD)
+        const fileDate = rec.date_folder || '';
+        
+        // Parse time from filename
+        // Format mới: YYYYMMDD_HHMMSS_ClientName.mp4
+        // Format cũ: ClientName_YYYYMMDD_HHMMSS.mp4
+        let fileTime = '';
+        if (rec.filename) {
+            // Try format mới trước: YYYYMMDD_HHMMSS_ClientName.mp4
+            let match = rec.filename.match(/(\d{8})_(\d{6})_/);
+            if (match) {
+                fileTime = match[2]; // HHMMSS
+            } else {
+                // Try format cũ: ClientName_YYYYMMDD_HHMMSS.mp4
+                match = rec.filename.match(/_(\d{8})_(\d{6})\./);
+                if (match) {
+                    fileTime = match[2]; // HHMMSS
+                }
+            }
+        }
+        
+        // Check date filter
+        if (recordingsFilter.dateFrom) {
+            const filterDateFrom = recordingsFilter.dateFrom.replace(/-/g, ''); // YYYY-MM-DD -> YYYYMMDD
+            if (fileDate < filterDateFrom) {
+                return false;
+            }
+        }
+        
+        if (recordingsFilter.dateTo) {
+            const filterDateTo = recordingsFilter.dateTo.replace(/-/g, ''); // YYYY-MM-DD -> YYYYMMDD
+            if (fileDate > filterDateTo) {
+                return false;
+            }
+        }
+        
+        // Check time filter (only if date matches or no date filter)
+        if (fileTime && (recordingsFilter.timeFrom || recordingsFilter.timeTo)) {
+            const fileTimeFormatted = fileTime.substring(0, 2) + ':' + fileTime.substring(2, 4) + ':' + fileTime.substring(4, 6);
+            
+            if (recordingsFilter.timeFrom) {
+                if (fileTimeFormatted < recordingsFilter.timeFrom) {
+                    return false;
+                }
+            }
+            
+            if (recordingsFilter.timeTo) {
+                if (fileTimeFormatted > recordingsFilter.timeTo) {
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    });
+}
+
+// Sort recordings function
+function sortRecordings(list, column, direction) {
+    const sorted = [...list];
+    
+    sorted.sort((a, b) => {
+        let comparison = 0;
+        
+        switch(column) {
+            case 'date':
+                // Sort by date_folder (YYYYMMDD) then by filename (which contains time)
+                const dateCompare = (a.date_folder || '').localeCompare(b.date_folder || '');
+                if (dateCompare !== 0) {
+                    comparison = dateCompare;
+                } else {
+                    // If same date, sort by filename (which has time in new format)
+                    comparison = (a.filename || '').localeCompare(b.filename || '');
+                }
+                break;
+            case 'filename':
+                comparison = (a.filename || '').localeCompare(b.filename || '');
+                break;
+            case 'size':
+                comparison = (a.size || 0) - (b.size || 0);
+                break;
+            default:
+                comparison = 0;
+        }
+        
+        return direction === 'asc' ? comparison : -comparison;
+    });
+    
+    return sorted;
+}
+
+// Handle sort click
+function handleRecordingsSort(column) {
+    // Nếu click vào cùng column, đổi direction
+    if (recordingsSortColumn === column) {
+        recordingsSortDirection = recordingsSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        // Nếu click vào column khác, set column mới và mặc định desc
+        recordingsSortColumn = column;
+        recordingsSortDirection = 'desc';
+    }
+    
+    // Update sort icons
+    updateRecordingsSortIcons();
+    
+    // Reload recordings với sort mới
+    const select = document.getElementById('playback-client-select');
+    const clientId = select ? select.value : null;
+    if (clientId) {
+        loadRecordings(clientId);
+    }
+}
+
+// Update sort icons
+function updateRecordingsSortIcons() {
+    document.querySelectorAll('#recordings-table th.sortable').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+        const column = th.dataset.sort;
+        
+        if (icon) {
+            if (recordingsSortColumn === column) {
+                icon.textContent = recordingsSortDirection === 'asc' ? '↑' : '↓';
+                icon.style.opacity = '1';
+                th.style.color = 'var(--primary-color)';
+            } else {
+                icon.textContent = '⇅';
+                icon.style.opacity = '0.5';
+                th.style.color = '';
+            }
+        }
+    });
+}
+
+// Xóa video recording
+async function deleteRecording(clientId, dateFolder, filename) {
+    if (!confirm(`Bạn có chắc chắn muốn xóa video "${filename}"?`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/recordings/file/${clientId}/${dateFolder}/${encodeURIComponent(filename)}`, {
+            method: 'DELETE'
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            alert('Xóa video thành công!');
+            // Reload danh sách video
+            loadRecordings(clientId);
+        } else {
+            const error = await res.json();
+            alert(`Lỗi khi xóa video: ${error.error || 'Unknown error'}`);
+        }
+    } catch (e) {
+        console.error('Error deleting recording:', e);
+        alert('Lỗi khi xóa video. Vui lòng thử lại.');
     }
 }
 
@@ -334,66 +851,307 @@ async function loadRecordings(clientId) {
         if (!tbody) return;
 
         if (!Array.isArray(list) || list.length === 0) {
-            tbody.innerHTML = '<tr><td colspan=\"3\" style=\"text-align:center;color:#7f8c8d;\">Chưa có video nào được ghi</td></tr>';
+            tbody.innerHTML = '<tr><td colspan=\"4\" style=\"text-align:center;color:#7f8c8d;\">Chưa có video nào được ghi</td></tr>';
             return;
         }
 
-        tbody.innerHTML = list.map(rec => `
+        // Filter recordings
+        const filteredList = filterRecordings(list);
+        
+        if (filteredList.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#7f8c8d;">Không tìm thấy video nào phù hợp với bộ lọc</td></tr>';
+            return;
+        }
+        
+        // Sort recordings
+        const sortedList = sortRecordings(filteredList, recordingsSortColumn, recordingsSortDirection);
+
+        tbody.innerHTML = sortedList.map(rec => {
+            let sizeText = 'Đang ghi...';
+            if (rec.size_mb > 0) {
+                sizeText = `${rec.size_mb} MB`;
+            } else if (rec.size === 0) {
+                sizeText = '0 MB (File trống)';
+            }
+            // Escape filename và date_folder để tránh lỗi JavaScript
+            const escapedDateFolder = rec.date_folder.replace(/'/g, "\\'");
+            const escapedFilename = rec.filename.replace(/'/g, "\\'");
+            
+            return `
             <tr>
                 <td>${rec.date_folder}</td>
                 <td>${rec.filename}</td>
+                <td>${sizeText}</td>
                 <td>
-                    <button class=\"view-btn\" onclick=\"playRecording('${rec.url}')\">Play</button>
+                    <button class="view-btn" onclick="playRecording('${rec.url}')">Play</button>
+                    <button class="delete-btn" onclick="deleteRecording(${clientId}, '${escapedDateFolder}', '${escapedFilename}')" style="margin-left: 8px;">Xóa</button>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
+        
+        // Setup sort event listeners
+        setupRecordingsSortListeners();
+        // Update sort icons
+        updateRecordingsSortIcons();
     } catch (e) {
         console.error('loadRecordings error:', e);
         const tbody = document.getElementById('recordings-body');
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan=\"3\" style=\"text-align:center;color:#e74c3c;\">Lỗi khi tải danh sách video</td></tr>';
+            tbody.innerHTML = '<tr><td colspan=\"4\" style=\"text-align:center;color:#7f8c8d;\">Vui lòng chọn mốc thời gian để xem danh sách video</td></tr>';
         }
+    }
+}
+
+// Setup sort event listeners
+function setupRecordingsSortListeners() {
+    document.querySelectorAll('#recordings-table th.sortable').forEach(th => {
+        // Remove existing listeners by cloning (clean way)
+        if (!th.hasAttribute('data-sort-listener')) {
+            th.setAttribute('data-sort-listener', 'true');
+            th.addEventListener('click', () => {
+                handleRecordingsSort(th.dataset.sort);
+            });
+        }
+    });
+}
+
+// Setup filter controls
+function setupRecordingsFilters() {
+    const applyBtn = document.getElementById('recordings-filter-apply-btn');
+    const clearBtn = document.getElementById('recordings-filter-clear-btn');
+    
+    if (applyBtn && !applyBtn._bound) {
+        applyBtn.addEventListener('click', applyRecordingsFilter);
+        applyBtn._bound = true;
+    }
+    
+    if (clearBtn && !clearBtn._bound) {
+        clearBtn.addEventListener('click', clearRecordingsFilter);
+        clearBtn._bound = true;
+    }
+}
+
+// Apply filter
+function applyRecordingsFilter() {
+    const dateFrom = document.getElementById('recordings-filter-date-from')?.value || null;
+    const dateTo = document.getElementById('recordings-filter-date-to')?.value || null;
+    const timeFrom = document.getElementById('recordings-filter-time-from')?.value || null;
+    const timeTo = document.getElementById('recordings-filter-time-to')?.value || null;
+    
+    recordingsFilter = {
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+        timeFrom: timeFrom,
+        timeTo: timeTo
+    };
+    
+    // Reload recordings với filter mới
+    const select = document.getElementById('playback-client-select');
+    const clientId = select ? select.value : null;
+    if (clientId) {
+        loadRecordings(clientId);
+    }
+}
+
+// Clear filter
+function clearRecordingsFilter() {
+    recordingsFilter = {
+        dateFrom: null,
+        dateTo: null,
+        timeFrom: null,
+        timeTo: null
+    };
+    
+    // Clear input fields
+    const dateFromInput = document.getElementById('recordings-filter-date-from');
+    const dateToInput = document.getElementById('recordings-filter-date-to');
+    const timeFromInput = document.getElementById('recordings-filter-time-from');
+    const timeToInput = document.getElementById('recordings-filter-time-to');
+    
+    if (dateFromInput) dateFromInput.value = '';
+    if (dateToInput) dateToInput.value = '';
+    if (timeFromInput) timeFromInput.value = '';
+    if (timeToInput) timeToInput.value = '';
+    
+    // Reload recordings
+    const select = document.getElementById('playback-client-select');
+    const clientId = select ? select.value : null;
+    if (clientId) {
+        loadRecordings(clientId);
     }
 }
 
 function playRecording(url) {
     const video = document.getElementById('playback-video');
     const placeholder = document.getElementById('playback-placeholder');
-    if (!video) return;
+    const container = document.getElementById('playback-video-container');
+    if (!video || !container) return;
     
-    // Ẩn placeholder và hiển thị video
-    if (placeholder) placeholder.style.display = 'none';
-    video.style.display = 'block';
+    // Reset video state hoàn toàn - dừng và clear video cũ
+    video.pause();
+    video.currentTime = 0;
+    video.src = '';
+    video.load(); // Force reload để clear video cũ
+    
+    // Đảm bảo chỉ có 1 video element trong container
+    const allVideos = container.querySelectorAll('video');
+    allVideos.forEach((v, index) => {
+        if (index > 0) {
+            v.remove(); // Xóa các video element thừa
+        }
+    });
+    
+    // Đảm bảo container được reset và có đủ không gian
+    container.style.overflow = 'visible'; // Đổi thành visible để video không bị cắt ở dưới
+    container.style.position = 'relative';
+    container.style.width = '100%';
+    container.style.maxWidth = '100%';
+    container.style.boxSizing = 'border-box';
+    container.style.minHeight = '0'; // Cho phép flex shrink
+    container.style.flex = '1 1 0'; // Lấy tất cả không gian còn lại
+    container.style.paddingBottom = '60px'; // Tăng padding bottom để có chỗ cho video controls
+    
+    // Hiển thị placeholder với loading message
+    if (placeholder) {
+        placeholder.style.display = 'flex';
+        placeholder.querySelector('p').textContent = 'Đang tải video...';
+    }
+    video.style.display = 'none';
+    video.style.position = 'relative';
+    video.style.zIndex = '1';
     
     // Thêm timestamp để tránh cache
     const fullUrl = `${url}?t=${Date.now()}`;
-    video.src = fullUrl;
-    video.load(); // Load video mới
-    video.play().catch(err => {
-        console.error('Error playing video:', err);
-        // Nếu lỗi, hiển thị lại placeholder
+    
+    // Xử lý lỗi khi load video
+    const handleError = (error) => {
+        console.error('Error loading/playing video:', error);
+        const currentVideo = document.getElementById('playback-video');
         if (placeholder) {
             placeholder.style.display = 'flex';
-            placeholder.querySelector('p').textContent = 'Không thể phát video. Vui lòng thử lại.';
+            placeholder.querySelector('p').textContent = 'Không thể phát video. File có thể đang được ghi hoặc bị lỗi.';
         }
-        video.style.display = 'none';
+        if (currentVideo) {
+            currentVideo.style.display = 'none';
+        }
+    };
+    
+    // Xử lý khi video có thể phát
+    const handleCanPlay = () => {
+        const currentVideo = document.getElementById('playback-video');
+        if (!currentVideo) return;
+        
+        if (placeholder) placeholder.style.display = 'none';
+        currentVideo.style.display = 'block';
+        // Đảm bảo video scale lớn để fill container nhưng không bị cắt
+        // Video 640x480 (tỷ lệ 4:3) - scale theo chiều rộng container, giữ nguyên tỷ lệ
+        currentVideo.style.width = '100%';
+        currentVideo.style.height = 'auto';
+        currentVideo.style.maxWidth = '100%';
+        currentVideo.style.maxHeight = '100%'; // Giới hạn theo container height
+        currentVideo.style.margin = '0';
+        currentVideo.style.position = 'relative';
+        currentVideo.style.zIndex = '1';
+        currentVideo.style.boxSizing = 'border-box';
+        currentVideo.style.objectFit = 'contain'; // Giữ nguyên tỷ lệ, không cắt video
+    };
+    
+    // Xử lý khi video load xong metadata
+    const handleLoadedMetadata = () => {
+        const currentVideo = document.getElementById('playback-video');
+        if (currentVideo) {
+            console.log('Video metadata loaded, duration:', currentVideo.duration);
+        }
+    };
+    
+    // Xử lý khi video load xong
+    const handleLoadedData = () => {
+        console.log('Video data loaded');
+    };
+    
+    // Xóa các event listeners cũ bằng cách remove và add lại
+    const newVideo = video.cloneNode(false);
+    newVideo.id = 'playback-video';
+    newVideo.controls = true;
+    newVideo.preload = 'metadata';
+    newVideo.style.display = 'none';
+    newVideo.style.width = '100%';
+    newVideo.style.height = 'auto';
+    newVideo.style.maxWidth = '100%';
+    newVideo.style.maxHeight = '100%'; // Giới hạn theo container height
+    newVideo.style.margin = '0';
+    newVideo.style.padding = '0';
+    newVideo.style.position = 'relative';
+    newVideo.style.zIndex = '1';
+    newVideo.style.boxSizing = 'border-box';
+    newVideo.style.objectFit = 'contain'; // Giữ nguyên tỷ lệ, không cắt video
+    /* Video 640x480 (4:3) sẽ scale theo chiều rộng container, giữ nguyên tỷ lệ */
+    
+    video.replaceWith(newVideo);
+    
+    // Thêm event listeners mới
+    newVideo.addEventListener('error', handleError);
+    newVideo.addEventListener('canplay', handleCanPlay);
+    newVideo.addEventListener('loadedmetadata', handleLoadedMetadata);
+    newVideo.addEventListener('loadeddata', handleLoadedData);
+    
+    // Set source và load
+    newVideo.src = fullUrl;
+    newVideo.load();
+    
+    // Thử phát video
+    newVideo.play().catch(err => {
+        console.error('Error playing video (autoplay blocked?):', err);
+        // Autoplay có thể bị chặn, nhưng video vẫn có thể phát thủ công
+        // Chỉ hiển thị lỗi nếu thực sự không load được
+        if (newVideo.readyState === 0) {
+            handleError(err);
+        } else {
+            // Video đã load, chỉ là autoplay bị chặn - không sao
+            handleCanPlay();
+        }
     });
 }
 
 function changePage(direction) {
+    // Đảm bảo trang không nhỏ hơn 1
+    if (currentPage + direction < 1) {
+        return;
+    }
+    
     currentPage += direction;
+    updatePageInfo();
     loadDetections();
     updatePaginationButtons();
+}
+
+function updatePageInfo() {
+    const pageInfo = document.getElementById('page-info');
+    if (pageInfo) {
+        pageInfo.textContent = `Page ${currentPage}`;
+    }
 }
 
 function updatePaginationButtons() {
     const prevBtn = document.getElementById('prev-page');
     const nextBtn = document.getElementById('next-page');
+    const pageInfo = document.getElementById('page-info');
 
-    prevBtn.disabled = currentPage <= 1;
+    // Disable Previous nếu đang ở trang 1
+    if (prevBtn) {
+        prevBtn.disabled = currentPage <= 1;
+    }
 
-    // We'll enable next button by default, disable it if we get fewer results than expected
-    nextBtn.disabled = false;
+    // Cập nhật số trang hiển thị
+    if (pageInfo) {
+        pageInfo.textContent = `Page ${currentPage}`;
+    }
+
+    // Next button sẽ được disable nếu không còn dữ liệu (sẽ được xử lý trong loadDetections)
+    if (nextBtn) {
+        nextBtn.disabled = false;
+    }
 }
 
 async function loadStats() {
@@ -515,7 +1273,7 @@ async function loadDetections() {
     } catch (error) {
         console.error('Error loading detections:', error);
         document.getElementById('detections-body').innerHTML =
-            '<tr><td colspan="6" style="text-align: center; color: #e74c3c;">Error loading detections</td></tr>';
+            '<tr><td colspan="7" style="text-align: center; color: #e74c3c;">Error loading detections</td></tr>';
     }
 }
 
@@ -523,12 +1281,15 @@ function displayDetections(detections) {
     const tbody = document.getElementById('detections-body');
 
     if (detections.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #7f8c8d;">No detections found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #7f8c8d;">No detections found</td></tr>';
         return;
     }
 
     tbody.innerHTML = detections.map(detection => `
         <tr>
+            <td>
+                <input type="checkbox" class="detection-checkbox" value="${detection.id}" onchange="updateDeleteButton()">
+            </td>
             <td>${formatTimestamp(detection.timestamp)}</td>
             <td>
                 <span class="client-name">${detection.client ? detection.client.name : 'Unknown'}</span>
@@ -547,13 +1308,99 @@ function displayDetections(detections) {
                      class="image-thumbnail"
                      onclick="showDetectionDetail(${detection.id})">
             </td>
-            <td>
-                <button class="view-btn" onclick="showDetectionDetail(${detection.id})">
-                    View Details
+            <td style="white-space: nowrap;">
+                <button class="view-btn" onclick="showDetectionDetail(${detection.id})" style="display: inline-block; margin-right: 8px;">
+                    Xem
+                </button>
+                <button class="delete-btn" onclick="deleteSingleDetection(${detection.id})" style="display: inline-block;">
+                    Xóa
                 </button>
             </td>
         </tr>
     `).join('');
+    
+    // Update delete button visibility
+    updateDeleteButton();
+}
+
+// Toggle select all checkboxes
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.detection-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+    updateDeleteButton();
+}
+
+// Update delete button visibility
+function updateDeleteButton() {
+    const checkedBoxes = document.querySelectorAll('.detection-checkbox:checked');
+    const deleteBtn = document.getElementById('delete-selected-btn');
+    if (deleteBtn) {
+        deleteBtn.style.display = checkedBoxes.length > 0 ? 'block' : 'none';
+    }
+}
+
+// Delete selected detections
+async function deleteSelectedDetections() {
+    const checkedBoxes = document.querySelectorAll('.detection-checkbox:checked');
+    const selectedIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+    
+    if (selectedIds.length === 0) {
+        alert('Vui lòng chọn ít nhất một detection để xóa!');
+        return;
+    }
+    
+    if (!confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} detection(s) đã chọn?`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/detections/bulk-delete', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ids: selectedIds })
+        });
+        
+        if (res.ok) {
+            alert(`Đã xóa thành công ${selectedIds.length} detection(s)!`);
+            // Reload detections
+            loadDetections();
+        } else {
+            const error = await res.json();
+            alert(`Lỗi khi xóa: ${error.error || 'Unknown error'}`);
+        }
+    } catch (e) {
+        console.error('Error deleting detections:', e);
+        alert('Lỗi khi xóa detections. Vui lòng thử lại.');
+    }
+}
+
+// Delete single detection
+async function deleteSingleDetection(detectionId) {
+    if (!confirm('Bạn có chắc chắn muốn xóa detection này?')) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/detections/${detectionId}`, {
+            method: 'DELETE'
+        });
+        
+        if (res.ok) {
+            alert('Đã xóa detection thành công!');
+            // Reload detections
+            loadDetections();
+        } else {
+            const error = await res.json();
+            alert(`Lỗi khi xóa: ${error.error || 'Unknown error'}`);
+        }
+    } catch (e) {
+        console.error('Error deleting detection:', e);
+        alert('Lỗi khi xóa detection. Vui lòng thử lại.');
+    }
 }
 
 function formatTimestamp(timestamp) {
@@ -675,12 +1522,21 @@ function loadDetectionStreamClients() {
                     select.appendChild(option);
                 });
                 
+                // Update custom dropdown menu
+                updateCustomDropdownMenu('detection-stream-client-select');
+                
                 // Nếu chưa có client nào được chọn và có clients, tự động chọn client đầu tiên
                 if (!currentValue && clients.length > 0) {
                     select.value = clients[0].id;
+                    updateCustomDropdownText('detection-stream-client-select', clients[0].name);
                     // Trigger change event để load stream
                     const changeEvent = new Event('change');
                     select.dispatchEvent(changeEvent);
+                } else if (currentValue) {
+                    const selectedOption = select.querySelector(`option[value="${currentValue}"]`);
+                    if (selectedOption) {
+                        updateCustomDropdownText('detection-stream-client-select', selectedOption.textContent);
+                    }
                 }
             }
         })
@@ -724,6 +1580,10 @@ function handleDetectionStreamChange(event) {
                              alt="Live stream from ${client.name}"
                              onload="handleDetectionStreamLoad(${clientId})"
                              onerror="handleDetectionStreamError(${clientId})">
+                        <div id="recording-indicator-${clientId}" class="recording-indicator" style="display: none;">
+                            <span class="recording-dot"></span>
+                            <span class="recording-text">REC</span>
+                        </div>
                     </div>
                     <div class="stream-info">
                         <h4>${client.name}</h4>
@@ -731,11 +1591,21 @@ function handleDetectionStreamChange(event) {
                     </div>
                 </div>
             `;
+            
+            // Kiểm tra trạng thái recording và hiển thị indicator
+            checkRecordingStatusForStream(clientId);
         })
         .catch(error => {
             console.error('Error loading client info:', error);
             container.innerHTML = '<div class="stream-placeholder"><p style="color: #e74c3c;">Lỗi khi tải client: ' + error.message + '</p></div>';
         });
+    
+    // Kiểm tra trạng thái recording và hiển thị indicator sau khi load stream
+    setTimeout(() => {
+        if (clientId) {
+            checkRecordingStatusForStream(clientId);
+        }
+    }, 500);
 }
 
 // Track video stream state for auto-reload
@@ -1861,7 +2731,7 @@ async function loadAlertSettings() {
         
         const emailInput = document.getElementById('alert-email-input');
         const emailCheckbox = document.getElementById('email-enabled-checkbox');
-        const statusSpan = document.getElementById('email-status');
+        const emailStatusSpan = document.getElementById('email-status');
         
         if (emailInput) {
             emailInput.value = settings.alert_email || '';
@@ -1870,19 +2740,21 @@ async function loadAlertSettings() {
             emailCheckbox.checked = settings.email_enabled || false;
         }
 
-        if (statusSpan) {
+        if (emailStatusSpan) {
             if (settings.alert_email) {
                 if (settings.email_enabled) {
-                    statusSpan.textContent = `Đã lưu: ${settings.alert_email} (đang bật)`;
-                    statusSpan.style.color = '#2ecc71';
+                    emailStatusSpan.textContent = `Đã lưu: ${settings.alert_email} (đang bật)`;
+                    emailStatusSpan.style.color = '#2ecc71';
                 } else {
-                    statusSpan.textContent = `Đã lưu: ${settings.alert_email} (đang tắt)`;
-                    statusSpan.style.color = '#f39c12';
+                    emailStatusSpan.textContent = `Đã lưu: ${settings.alert_email} (đang tắt)`;
+                    emailStatusSpan.style.color = '#f39c12';
                 }
             } else {
-                statusSpan.textContent = '';
+                emailStatusSpan.textContent = '';
             }
         }
+        
+        // Telegram settings được cấu hình trong config.py, không hiển thị trên UI
     } catch (error) {
         console.error('Error loading alert settings:', error);
     }
@@ -1988,6 +2860,67 @@ async function testEmail() {
         if (testBtn) {
             testBtn.disabled = false;
             testBtn.textContent = 'Test Email';
+        }
+    }
+}
+
+// Test Telegram - dùng cấu hình từ config.py
+async function testTelegram() {
+    try {
+        const testBtn = document.getElementById('test-telegram-btn');
+        const statusSpan = document.getElementById('telegram-status');
+        
+        if (testBtn) {
+            testBtn.disabled = true;
+            testBtn.innerHTML = '<span>📲</span><span>Đang gửi...</span>';
+        }
+        
+        if (statusSpan) {
+            statusSpan.textContent = 'Đang gửi tin nhắn test...';
+            statusSpan.style.color = '#3498db';
+        }
+        
+        const response = await fetch('/api/alert-settings/test-telegram', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})  // Không cần gửi chat_id, server sẽ dùng từ config
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            showToastNotification('Đã gửi tin nhắn test đến Telegram! Vui lòng kiểm tra Telegram của bạn.', 'info');
+            
+            if (statusSpan) {
+                statusSpan.textContent = '✅ Đã gửi tin nhắn test thành công';
+                statusSpan.style.color = '#27ae60';
+            }
+        } else {
+            const error = await response.json();
+            const errorMsg = error.error || 'Không thể gửi tin nhắn. Kiểm tra Bot Token và Chat ID trong config.py.';
+            alert(`Lỗi khi gửi Telegram test: ${errorMsg}`);
+            
+            if (statusSpan) {
+                statusSpan.textContent = '❌ Lỗi: ' + errorMsg.substring(0, 50) + '...';
+                statusSpan.style.color = '#e74c3c';
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error testing Telegram:', error);
+        alert(`Lỗi: ${error.message || 'Không thể kết nối đến server'}`);
+        
+        const statusSpan = document.getElementById('telegram-status');
+        if (statusSpan) {
+            statusSpan.textContent = '❌ Lỗi kết nối';
+            statusSpan.style.color = '#e74c3c';
+        }
+    } finally {
+        const testBtn = document.getElementById('test-telegram-btn');
+        if (testBtn) {
+            testBtn.disabled = false;
+            testBtn.innerHTML = '<span>📲</span><span>Test Telegram</span>';
         }
     }
 }

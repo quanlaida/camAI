@@ -30,6 +30,11 @@ VIDEO_RECORD_BASE_DIR = os.path.join(os.path.dirname(__file__), 'recordings')
 ALERT_EMAIL_SENDER = os.getenv('ALERT_EMAIL_SENDER', '')  # Email gửi đi (ví dụ: your-email@gmail.com)
 ALERT_EMAIL_PASSWORD = os.getenv('ALERT_EMAIL_PASSWORD', '')  # App Password từ Gmail (không phải mật khẩu thường)
 
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8536552488:AAGmQD-vjI9nP3jV4dli1ToNNdKhfcv5rXU')  # Bot token từ @BotFather
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '5089356978')  # Chat ID để nhận cảnh báo (cấu hình sẵn)
+TELEGRAM_ENABLED = os.getenv('TELEGRAM_ENABLED', 'true').lower() == 'true'  # Bật/tắt cảnh báo Telegram (mặc định: true)
+
 # Detection Configuration
 DETECTION_THRESHOLD = 0.35
 IOU_THRESHOLD = 0.45
