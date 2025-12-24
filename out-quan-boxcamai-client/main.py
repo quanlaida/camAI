@@ -222,7 +222,7 @@ def get_info():
 def check_server_updates(current_ip, current_roi, current_roi_regions_json, current_show_overlay, current_is_detect_enabled, current_rtsp_subtype=None):
     """
     Kiểm tra xem có thay đổi từ server không
-    Returns: (ip_changed, roi_changed, overlay_changed, detect_enabled_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_is_detect_enabled, new_rtsp_subtype) hoặc None nếu lỗi
+    Returns: (ip_changed, roi_changed, overlay_changed, detect_enabled_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_is_detect_enabled, new_rtsp_subtype, new_priority_classes) hoặc None nếu lỗi
     """
     try:
         client_info = get_info()
@@ -239,6 +239,7 @@ def check_server_updates(current_ip, current_roi, current_roi_regions_json, curr
         new_roi_regions_json = client_info.get('roi_regions')
         new_show_overlay = client_info.get('show_roi_overlay', True)
         new_is_detect_enabled = client_info.get('is_detect_enabled', True)
+        new_priority_classes = client_info.get('priority_classes', [])  # Danh sách class ưu tiên
         # rtsp_subtype hiện không còn dùng cho client (luôn dùng subtype=1)
         new_rtsp_subtype = current_rtsp_subtype
         
@@ -278,7 +279,7 @@ def check_server_updates(current_ip, current_roi, current_roi_regions_json, curr
                 quality_new = "chất lượng cao" if new_rtsp_subtype == 0 else "chất lượng thấp"
                 print(f"   rtsp_subtype: {current_rtsp_subtype} ({quality_old}) -> {new_rtsp_subtype} ({quality_new})")
         
-        return (ip_changed, roi_changed, overlay_changed, detect_enabled_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_is_detect_enabled, new_rtsp_subtype)
+        return (ip_changed, roi_changed, overlay_changed, detect_enabled_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_is_detect_enabled, new_rtsp_subtype, new_priority_classes)
     
     except Exception as e:
         print(f"❌ Error checking server updates: {e}")
@@ -341,7 +342,7 @@ def server_polling_thread(stop_event, initial_ip, initial_roi, initial_roi_regio
                     break
                 continue
             
-            ip_changed, roi_changed, overlay_changed, detect_enabled_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_is_detect_enabled, new_rtsp_subtype = result
+            ip_changed, roi_changed, overlay_changed, detect_enabled_changed, subtype_changed, new_ip, new_roi, new_roi_regions_json, new_show_overlay, new_is_detect_enabled, new_rtsp_subtype, new_priority_classes = result
             
             # Phát hiện thay đổi - CHỈ restart nếu thực sự có thay đổi
             if ip_changed:
@@ -468,6 +469,8 @@ def main():
     not_sent = args.not_sent
 
     # Get client info from server
+    # Khởi tạo priority_classes mặc định trước khi check client_info
+    priority_classes = []
     client_info = get_info()
     if client_info:
         print(f"Client info retrieved: {client_info}")
@@ -478,6 +481,7 @@ def main():
         roi_x2 = client_info.get('roi_x2')
         roi_y2 = client_info.get('roi_y2')
         roi_regions_json = client_info.get('roi_regions')  # Multiple ROI regions
+        priority_classes = client_info.get('priority_classes', [])  # Danh sách class ưu tiên
         global ip_address
         ip_address = client_info.get('ip_address')
 
@@ -491,6 +495,7 @@ def main():
         show_roi_overlay = True
         roi_x1 = roi_y1 = roi_x2 = roi_y2 = None
         roi_regions_json = None
+        priority_classes = []  # Mặc định không có class ưu tiên
         ip_address = None  # Khởi tạo ip_address
 
     # Determine video source
@@ -513,7 +518,7 @@ def main():
 
     # Start detection process
     detection_proc = Process(target=detection_process, args=(
-        frame_queue, stop_event, not_sent, args.display, roi_x1, roi_y1, roi_x2, roi_y2, roi_regions_json, show_roi_overlay))
+        frame_queue, stop_event, not_sent, args.display, roi_x1, roi_y1, roi_x2, roi_y2, roi_regions_json, show_roi_overlay, priority_classes))
     detection_proc.start()
 
     # Override config if video file specified via args

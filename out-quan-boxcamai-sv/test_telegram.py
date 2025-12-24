@@ -77,7 +77,7 @@ def get_updates():
 def send_test_message(chat_id):
     """Gửi tin nhắn test"""
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    message = "✅ *TEST TELEGRAM BOT*\n\nĐây là tin nhắn test từ hệ thống CamAI. Nếu bạn nhận được tin nhắn này, bot đã hoạt động đúng!"
+    message = "✅ *TEST TELEGRAM BOT*\n\nĐây là tin nhắn test từ hệ thống CamAI. Nếu bạn nhận được tin nhắn này, bot đã hoạt động đúng!\n\n🚨 Bot sẽ tự động gửi cảnh báo khi phát hiện đối tượng trong khu vực ROI."
     
     data = {
         'chat_id': chat_id,

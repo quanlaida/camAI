@@ -30,6 +30,8 @@ class Client(Base):
     # Nhiều ROI hợp nhất - lưu mảng ROI dạng JSON: [{"x1": float, "y1": float, "x2": float, "y2": float}, ...]
     # Logic: Chỉ detect khi object trong TẤT CẢ các ROI
     roi_regions = Column(Text, nullable=True)  # JSON string: [{"x1": float, "y1": float, "x2": float, "y2": float}, ...]
+    # Priority classes: Danh sách class ưu tiên cho client này (cảnh báo ngay cả khi ngoài ROI)
+    priority_classes = Column(Text, nullable=True)  # JSON array: Danh sách class ưu tiên (ví dụ: ["fire", "smoke"])
     # Relationship to detections
     detections = relationship("Detection", back_populates="client")
 
@@ -59,6 +61,7 @@ class AlertSettings(Base):
     email_enabled = Column(Boolean, default=False, nullable=False)
     telegram_chat_id = Column(String(50), nullable=True)  # Telegram Chat ID để nhận cảnh báo
     telegram_enabled = Column(Boolean, default=False, nullable=False)  # Bật/tắt cảnh báo Telegram
+    priority_classes = Column(Text, nullable=True)  # JSON array: Danh sách class ưu tiên (ví dụ: ["fire", "smoke"])
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -104,6 +107,27 @@ def init_database():
             connection.execute(text("ALTER TABLE clients ADD COLUMN rtsp_subtype INTEGER DEFAULT 1"))
             connection.commit()
             print("✅ Added 'rtsp_subtype' column to 'clients' table (default 1 = chất lượng thấp).")
+    
+    # Auto-migration: Add priority_classes column to clients if not exists
+    try:
+        if 'priority_classes' not in columns:
+            with engine.connect() as connection:
+                connection.execute(text("ALTER TABLE clients ADD COLUMN priority_classes TEXT"))
+                connection.commit()
+                print("✅ Added 'priority_classes' column to 'clients' table.")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not add priority_classes column to clients: {e}")
+    
+    # Auto-migration: Add priority_classes column to alert_settings if not exists (backward compatibility)
+    try:
+        alert_settings_columns = [col['name'] for col in inspector.get_columns('alert_settings')]
+        if 'priority_classes' not in alert_settings_columns:
+            with engine.connect() as connection:
+                connection.execute(text("ALTER TABLE alert_settings ADD COLUMN priority_classes TEXT"))
+                connection.commit()
+                print("✅ Added 'priority_classes' column to 'alert_settings' table (backward compatibility).")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not add priority_classes column to alert_settings: {e}")
 
     # Create images directory
     os.makedirs(SERVER_IMAGES_DIR, exist_ok=True)

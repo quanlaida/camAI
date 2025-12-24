@@ -36,7 +36,7 @@ def send_video_frame(frame):
     """Gửi raw frame về server (được gọi từ video_capture_process)"""
     # Hiện tại không gửi raw stream để giảm tải cho Pi
     # Hàm này được giữ lại để tương thích với code hiện tại
-    pass
+        pass
 
 def send_processed_frame(frame):
     """Thêm processed frame (có detection boxes) vào queue để gửi về server"""
@@ -50,7 +50,7 @@ def send_processed_frame(frame):
         # Thử put, nếu full thì bỏ bớt frame cũ rồi thử lại 1 lần
         # Resize frame để giảm bandwidth - Tối ưu: dùng INTER_LINEAR (nhanh hơn)
         resized_frame = cv2.resize(frame, (640, 480), interpolation=cv2.INTER_LINEAR)
-        try:
+            try:
             processed_stream_queue.put_nowait(resized_frame.copy())
         except Exception:
             # Queue có thể bị full giữa lúc full() và put_nowait() (race condition),
@@ -60,10 +60,10 @@ def send_processed_frame(frame):
             except Exception:
                 pass
             try:
-                processed_stream_queue.put_nowait(resized_frame.copy())
+        processed_stream_queue.put_nowait(resized_frame.copy())
             except Exception:
                 pass
-    except Exception as e:
+        except Exception as e:
         # Không spam traceback vì lỗi queue.Full không ảnh hưởng logic chính
         print(f"⚠️ Error in send_processed_frame (ignored): {e}")
 

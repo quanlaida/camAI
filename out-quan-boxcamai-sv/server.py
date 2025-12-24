@@ -117,20 +117,39 @@ recording_processes = {}
 recording_lock = threading.Lock()
 MAX_VIDEO_DURATION_MINUTES = 30  # Mỗi video tối đa 30 phút
 
-# Monitoring thread để kiểm tra recording processes
+# Monitoring thread để kiểm tra recording processes và tự động chia video mỗi 30 phút
 def monitor_recording_processes():
-    """Thread để monitor các recording processes và tự động cleanup khi process dừng"""
+    """Thread để monitor các recording processes, tự động chia video mỗi 30 phút và cleanup khi process dừng"""
     import time
     while True:
         try:
-            time.sleep(5)  # Kiểm tra mỗi 5 giây
+            time.sleep(30)  # Kiểm tra mỗi 30 giây
             with recording_lock:
                 to_remove = []
-                for client_id, proc in list(recording_processes.items()):
-                    if proc.poll() is not None:
+                to_split = []
+                
+                for client_id, recording_info in list(recording_processes.items()):
+                    proc = recording_info.get('process')
+                    if proc is None or proc.poll() is not None:
                         # Process đã dừng (có thể do lỗi hoặc crash)
-                        print(f"⚠️ Recording process for client {client_id} has stopped unexpectedly (exit code: {proc.returncode})")
+                        print(f"⚠️ Recording process for client {client_id} has stopped unexpectedly (exit code: {proc.returncode if proc else 'None'})")
                         to_remove.append(client_id)
+                        continue
+                    
+                    # Kiểm tra thời gian ghi video hiện tại
+                    start_time = recording_info.get('start_time')
+                    if start_time:
+                        elapsed_minutes = (datetime.now() - start_time).total_seconds() / 60
+                        if elapsed_minutes >= MAX_VIDEO_DURATION_MINUTES:
+                            # Đã đạt 30 phút, cần chia video
+                            to_split.append(client_id)
+                
+                # Xử lý chia video
+                for client_id in to_split:
+                    try:
+                        _split_recording_video(client_id)
+                    except Exception as e:
+                        print(f"❌ Lỗi khi chia video cho client {client_id}: {e}")
                 
                 # Cleanup các process đã dừng
                 for client_id in to_remove:
@@ -138,7 +157,7 @@ def monitor_recording_processes():
                     print(f"🧹 Cleaned up stopped recording process for client {client_id}")
         except Exception as e:
             print(f"Error in recording monitor thread: {e}")
-            time.sleep(5)
+            time.sleep(30)
 
 # Bắt đầu monitoring thread (chỉ start một lần)
 _monitor_thread_started = False
@@ -494,26 +513,56 @@ def send_alert_telegram(detection_id, client_id):
         if not client:
             return
         
-        # CHỈ gửi Telegram nếu client có ROI (kiểm tra roi_regions hoặc roi_x1,y1,x2,y2)
-        hasROI = False
-        roi_names = []
-        if client.roi_regions:
+        # Kiểm tra xem detection.class_name có trong priority_classes không (lấy từ Client)
+        priority_classes = []
+        if hasattr(client, 'priority_classes') and client.priority_classes:
             try:
-                roi_list = json.loads(client.roi_regions)
-                if isinstance(roi_list, list) and len(roi_list) > 0:
-                    hasROI = True
-                    roi_names = [roi.get('name', f'ROI {i+1}') for i, roi in enumerate(roi_list) if roi.get('name')]
-                    if not roi_names:
-                        roi_names = [f'ROI {i+1}' for i in range(len(roi_list))]
+                priority_classes = json.loads(client.priority_classes)
+                if not isinstance(priority_classes, list):
+                    priority_classes = []
             except:
-                pass
-        if not hasROI:
-            hasROI = (client.roi_x1 and client.roi_y1 and client.roi_x2 and client.roi_y2)
-            if hasROI:
-                roi_names = ['ROI 1']
+                priority_classes = []
         
-        if not hasROI:
-            return
+        is_priority_class = detection.class_name in priority_classes
+        
+        # Nếu không phải class ưu tiên, CHỈ gửi Telegram nếu client có ROI
+        if not is_priority_class:
+            hasROI = False
+            roi_names = []
+            if client.roi_regions:
+                try:
+                    roi_list = json.loads(client.roi_regions)
+                    if isinstance(roi_list, list) and len(roi_list) > 0:
+                        hasROI = True
+                        roi_names = [roi.get('name', f'ROI {i+1}') for i, roi in enumerate(roi_list) if roi.get('name')]
+                        if not roi_names:
+                            roi_names = [f'ROI {i+1}' for i in range(len(roi_list))]
+                except:
+                    pass
+            if not hasROI:
+                hasROI = (client.roi_x1 and client.roi_y1 and client.roi_x2 and client.roi_y2)
+                if hasROI:
+                    roi_names = ['ROI 1']
+            
+            if not hasROI:
+                return
+        else:
+            # Class ưu tiên: không cần ROI, nhưng vẫn lấy tên ROI nếu có để hiển thị
+            roi_names = []
+            if client.roi_regions:
+                try:
+                    roi_list = json.loads(client.roi_regions)
+                    if isinstance(roi_list, list) and len(roi_list) > 0:
+                        roi_names = [roi.get('name', f'ROI {i+1}') for i, roi in enumerate(roi_list) if roi.get('name')]
+                        if not roi_names:
+                            roi_names = [f'ROI {i+1}' for i in range(len(roi_list))]
+                except:
+                    pass
+            if not roi_names:
+                if client.roi_x1 and client.roi_y1 and client.roi_x2 and client.roi_y2:
+                    roi_names = ['ROI 1']
+                else:
+                    roi_names = ['Toàn bộ khung hình']  # Class ưu tiên không cần ROI
         
         bot_token = config.TELEGRAM_BOT_TOKEN
         
@@ -529,12 +578,15 @@ def send_alert_telegram(detection_id, client_id):
         timestamp_str = detection.timestamp.strftime('%d/%m/%Y %H:%M:%S')
         
         # Tạo message
-        message = f"🚨 *CẢNH BÁO PHÁT HIỆN ĐỐI TƯỢNG*\n\n"
+        priority_label = "🔥 ƯU TIÊN" if is_priority_class else ""
+        message = f"🚨 *CẢNH BÁO PHÁT HIỆN ĐỐI TƯỢNG* {priority_label}\n\n"
         message += f"📍 *Client:* {client.name}\n"
         message += f"🎯 *Đối tượng:* {detection.class_name}\n"
         message += f"📊 *Độ tin cậy:* {detection.confidence * 100:.1f}%\n"
         message += f"⏰ *Thời gian:* {timestamp_str}\n"
         message += f"🔍 *Khu vực:* {roi_display_name}\n"
+        if is_priority_class:
+            message += f"⚠️ *Lưu ý:* Đối tượng ưu tiên - cảnh báo ngay cả khi ngoài ROI\n"
         message += f"\n🔗 Xem chi tiết: https://boxcamai.cloud/detections/{detection.id}"
         
         # Gửi text message trước
@@ -614,27 +666,57 @@ def send_alert_email(detection_id, client_id):
         if not client:
             return
         
-        # CHỈ gửi email nếu client có ROI (kiểm tra roi_regions hoặc roi_x1,y1,x2,y2)
-        hasROI = False
-        roi_names = []  # Danh sách tên ROI
-        if client.roi_regions:
+        # Kiểm tra xem detection.class_name có trong priority_classes không (lấy từ Client)
+        priority_classes = []
+        if hasattr(client, 'priority_classes') and client.priority_classes:
             try:
-                roi_list = json.loads(client.roi_regions)
-                if isinstance(roi_list, list) and len(roi_list) > 0:
-                    hasROI = True
-                    # Lấy tên các ROI
-                    roi_names = [roi.get('name', f'ROI {i+1}') for i, roi in enumerate(roi_list) if roi.get('name')]
-                    if not roi_names:
-                        roi_names = [f'ROI {i+1}' for i in range(len(roi_list))]
+                priority_classes = json.loads(client.priority_classes)
+                if not isinstance(priority_classes, list):
+                    priority_classes = []
             except:
-                pass
-        if not hasROI:
-            hasROI = (client.roi_x1 and client.roi_y1 and client.roi_x2 and client.roi_y2)
-            if hasROI:
-                roi_names = ['ROI 1']  # Default name for single ROI
+                priority_classes = []
         
-        if not hasROI:
-            return
+        is_priority_class = detection.class_name in priority_classes
+        
+        # Nếu không phải class ưu tiên, CHỈ gửi email nếu client có ROI
+        if not is_priority_class:
+            hasROI = False
+            roi_names = []  # Danh sách tên ROI
+            if client.roi_regions:
+                try:
+                    roi_list = json.loads(client.roi_regions)
+                    if isinstance(roi_list, list) and len(roi_list) > 0:
+                        hasROI = True
+                        # Lấy tên các ROI
+                        roi_names = [roi.get('name', f'ROI {i+1}') for i, roi in enumerate(roi_list) if roi.get('name')]
+                        if not roi_names:
+                            roi_names = [f'ROI {i+1}' for i in range(len(roi_list))]
+                except:
+                    pass
+            if not hasROI:
+                hasROI = (client.roi_x1 and client.roi_y1 and client.roi_x2 and client.roi_y2)
+                if hasROI:
+                    roi_names = ['ROI 1']  # Default name for single ROI
+            
+            if not hasROI:
+                return
+        else:
+            # Class ưu tiên: không cần ROI, nhưng vẫn lấy tên ROI nếu có để hiển thị
+            roi_names = []
+            if client.roi_regions:
+                try:
+                    roi_list = json.loads(client.roi_regions)
+                    if isinstance(roi_list, list) and len(roi_list) > 0:
+                        roi_names = [roi.get('name', f'ROI {i+1}') for i, roi in enumerate(roi_list) if roi.get('name')]
+                        if not roi_names:
+                            roi_names = [f'ROI {i+1}' for i in range(len(roi_list))]
+                except:
+                    pass
+            if not roi_names:
+                if client.roi_x1 and client.roi_y1 and client.roi_x2 and client.roi_y2:
+                    roi_names = ['ROI 1']
+                else:
+                    roi_names = ['Toàn bộ khung hình']  # Class ưu tiên không cần ROI
         
         email_to = alert_settings.alert_email
         
@@ -753,15 +835,27 @@ def get_alert_settings():
                 'email_enabled': False,
                 # Telegram settings được lấy từ config
                 'telegram_chat_id': config.TELEGRAM_CHAT_ID,
-                'telegram_enabled': config.TELEGRAM_ENABLED
+                'telegram_enabled': config.TELEGRAM_ENABLED,
+                'priority_classes': []  # Mặc định không có class ưu tiên
             }), 200
+        
+        # Parse priority_classes từ JSON string
+        priority_classes = []
+        if settings.priority_classes:
+            try:
+                priority_classes = json.loads(settings.priority_classes)
+                if not isinstance(priority_classes, list):
+                    priority_classes = []
+            except:
+                priority_classes = []
         
         return jsonify({
             'alert_email': settings.alert_email,
             'email_enabled': settings.email_enabled,
             # Telegram settings được lấy từ config, không từ database
             'telegram_chat_id': config.TELEGRAM_CHAT_ID,
-            'telegram_enabled': config.TELEGRAM_ENABLED
+            'telegram_enabled': config.TELEGRAM_ENABLED,
+            'priority_classes': priority_classes
         }), 200
         
     except Exception as e:
@@ -784,6 +878,13 @@ def update_alert_settings():
         if 'email_enabled' in data:
             settings.email_enabled = data.get('email_enabled', False)
         # Telegram settings được cấu hình trong config.py, không lưu vào database
+        if 'priority_classes' in data:
+            # Lưu priority_classes dưới dạng JSON string
+            priority_classes = data.get('priority_classes', [])
+            if isinstance(priority_classes, list):
+                settings.priority_classes = json.dumps(priority_classes)
+            else:
+                settings.priority_classes = None
         
         settings.updated_at = datetime.now()
         session.commit()
@@ -1453,6 +1554,16 @@ def get_clients():
 
         result = []
         for client, count in clients_with_count:
+            # Parse priority_classes từ Client
+            priority_classes = []
+            if hasattr(client, 'priority_classes') and client.priority_classes:
+                try:
+                    priority_classes = json.loads(client.priority_classes)
+                    if not isinstance(priority_classes, list):
+                        priority_classes = []
+                except:
+                    priority_classes = []
+            
             result.append({
                 'id': client.id,
                 'name': client.name,
@@ -1464,6 +1575,7 @@ def get_clients():
                 'show_roi_overlay': getattr(client, 'show_roi_overlay', True),
                 # Fallback về 0 nếu None để khớp mặc định UI (chất lượng cao)
                 'rtsp_subtype': getattr(client, 'rtsp_subtype', 0) if getattr(client, 'rtsp_subtype', None) is not None else 0,  # 0=chất lượng cao, 1=chất lượng thấp
+                'priority_classes': priority_classes,  # Priority classes riêng cho từng client
                 'created_at': client.created_at.isoformat() if client.created_at else None,
                 'updated_at': client.updated_at.isoformat() if client.updated_at else None,
                 'client_detections': count
@@ -1578,6 +1690,16 @@ def get_client(client_id):
 
         session.close()
 
+        # Parse priority_classes từ Client
+        priority_classes = []
+        if hasattr(client, 'priority_classes') and client.priority_classes:
+            try:
+                priority_classes = json.loads(client.priority_classes)
+                if not isinstance(priority_classes, list):
+                    priority_classes = []
+            except:
+                priority_classes = []
+        
         result = {
             "id": client.id,
             "name": client.name,
@@ -1593,7 +1715,8 @@ def get_client(client_id):
             "roi_regions": client.roi_regions,  # Multiple ROI regions
             "ip_address": client.ip_address,
             # Nếu chưa set (None), fallback về 0 (chất lượng cao) để khớp mặc định UI
-            "rtsp_subtype": getattr(client, 'rtsp_subtype', 0) if getattr(client, 'rtsp_subtype', None) is not None else 0
+            "rtsp_subtype": getattr(client, 'rtsp_subtype', 0) if getattr(client, 'rtsp_subtype', None) is not None else 0,
+            "priority_classes": priority_classes  # Priority classes riêng cho từng client
         }
         return jsonify(result), 200
 
@@ -2133,6 +2256,16 @@ def get_client_by_serial(serial_number):
         if not client:
             return jsonify({'error': 'Client with this Serial number not found'}), 404
 
+        # Lấy priority_classes từ Client (riêng cho từng client)
+        priority_classes = []
+        if hasattr(client, 'priority_classes') and client.priority_classes:
+            try:
+                priority_classes = json.loads(client.priority_classes)
+                if not isinstance(priority_classes, list):
+                    priority_classes = []
+            except:
+                priority_classes = []
+        
         result = {
             "id": client.id,
             "name": client.name,
@@ -2148,7 +2281,8 @@ def get_client_by_serial(serial_number):
             "roi_regions": client.roi_regions,  # Multiple ROI regions
             "ip_address": client.ip_address,
             # Fallback về 0 (chất lượng cao) nếu chưa có trong DB
-            "rtsp_subtype": getattr(client, 'rtsp_subtype', 0) if getattr(client, 'rtsp_subtype', None) is not None else 0
+            "rtsp_subtype": getattr(client, 'rtsp_subtype', 0) if getattr(client, 'rtsp_subtype', None) is not None else 0,
+            "priority_classes": priority_classes  # Danh sách class ưu tiên (riêng cho từng client)
         }
         return jsonify(result), 200
 
@@ -2265,6 +2399,17 @@ def update_client(client_id):
                 print(f"✅ Updated roi_regions for client {client_id}: {data['roi_regions']}")
             else:
                 print(f"✅ Cleared roi_regions for client {client_id}")
+        if 'priority_classes' in data:
+            priority_classes = data.get('priority_classes', [])
+            print(f"📥 Received priority_classes for client {client_id}: {priority_classes} (type: {type(priority_classes)})")
+            if isinstance(priority_classes, list):
+                client.priority_classes = json.dumps(priority_classes)
+                print(f"✅ Updated priority_classes for client {client_id}: {priority_classes}")
+            else:
+                client.priority_classes = None
+                print(f"✅ Cleared priority_classes for client {client_id} (invalid format)")
+        else:
+            print(f"⚠️ priority_classes not found in request data for client {client_id}")
         if 'rtsp_subtype' in data:
             rtsp_subtype = int(data['rtsp_subtype'])
             if rtsp_subtype not in [0, 1]:

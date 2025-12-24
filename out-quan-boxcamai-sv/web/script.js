@@ -88,6 +88,8 @@ function initializeApp() {
     if (saveEmailBtn) {
         saveEmailBtn.addEventListener('click', saveAlertSettings);
     }
+    
+    // Priority classes đã chuyển sang client modal, không còn trong alert settings
 
     // Event listener cho checkbox "Bật cảnh báo email" - tự động lưu khi thay đổi
     const emailCheckbox = document.getElementById('email-enabled-checkbox');
@@ -1845,6 +1847,19 @@ function openClientModal(clientId = null) {
             </div>
 
             <div class="form-group">
+                <label style="font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #ef4444; font-size: 18px;">🔥</span>
+                    <span>Class ưu tiên (cảnh báo ngay cả khi ngoài ROI):</span>
+                </label>
+                <div id="client-priority-classes-checkboxes" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                    <!-- Checkboxes sẽ được tạo bằng JavaScript -->
+                </div>
+                <small class="form-help" style="display: block; margin-top: 8px; color: #6b7280;">
+                    Chọn các class sẽ gửi cảnh báo ngay cả khi ngoài ROI. Class ưu tiên sẽ bỏ qua cooldown và luôn gửi cảnh báo.
+                </small>
+            </div>
+
+            <div class="form-group">
                 <label>Region of Interest (ROI) to detect - Nhiều ROI hợp nhất:</label>
                 <div class="roi-container">
                     <div class="roi-mode-selector" style="margin-bottom: 10px; display: flex; gap: 15px; align-items: center;">
@@ -1894,6 +1909,9 @@ function openClientModal(clientId = null) {
         }
     }
 
+    // Initialize priority classes checkboxes
+    initClientPriorityClasses();
+    
     // Initialize ROI canvas
     initROICanvas(clientId);
     
@@ -1922,9 +1940,12 @@ function openClientModal(clientId = null) {
         }
     }, 100);
 
-    // Load client data if editing
+    // Load client data if editing (sau khi đã init checkboxes)
     if (isEdit) {
-        loadClientForEdit(clientId);
+        // Đợi một chút để đảm bảo checkboxes đã được tạo
+        setTimeout(() => {
+            loadClientForEdit(clientId);
+        }, 100);
     } else {
         // For new client, clear serial number field and ensure ROI list is updated
         document.getElementById('client-serial').value = '';
@@ -1948,6 +1969,9 @@ async function loadClientForEdit(clientId) {
             showRoiCheckbox.checked = client.show_roi_overlay !== false;
         }
         document.getElementById('client-enabled').checked = client.is_detect_enabled;
+
+        // Load priority classes
+        loadClientPriorityClasses(client.priority_classes || []);
 
         // Load ROI regions (multiple ROI support)
         roiRegions = [];
@@ -2089,6 +2113,11 @@ async function saveClient(clientId) {
         roi_y2 = Math.max(...ys);
     }
     
+    // Lấy priority classes từ checkboxes trong client modal
+    const priorityClassCheckboxes = document.querySelectorAll('#client-priority-classes-checkboxes .priority-class-checkbox:checked');
+    const priorityClasses = Array.from(priorityClassCheckboxes).map(cb => cb.value);
+    console.log('📋 Priority classes selected:', priorityClasses);
+    
     const clientData = {
         serial_number: document.getElementById('client-serial').value.trim(),
         name: document.getElementById('client-name').value.trim(),
@@ -2101,8 +2130,15 @@ async function saveClient(clientId) {
         roi_y1: roi_y1,
         roi_x2: roi_x2,
         roi_y2: roi_y2,
-        roi_regions: roiRegionsJson  // Multiple ROI regions
+        roi_regions: roiRegionsJson,  // Multiple ROI regions
+        priority_classes: priorityClasses  // Priority classes riêng cho từng client
     };
+
+    console.log('📤 Sending client data:', {
+        ...clientData,
+        priority_classes: priorityClasses,
+        priority_classes_count: priorityClasses.length
+    });
 
     try {
         const url = clientId ? `/api/clients/${clientId}` : '/api/clients';
@@ -2755,8 +2791,130 @@ async function loadAlertSettings() {
         }
         
         // Telegram settings được cấu hình trong config.py, không hiển thị trên UI
+        // Priority classes đã chuyển sang client modal (riêng cho từng client)
     } catch (error) {
         console.error('Error loading alert settings:', error);
+    }
+}
+
+// Danh sách class có sẵn (từ CLASS_NAMES2)
+const AVAILABLE_CLASSES = ['tree', 'drone', 'truck', 'motorcycle', 'crane', 'livestock', 'pole', 'fire', 'smoke', 'kite', 'person'];
+
+// Initialize priority classes checkboxes trong client modal
+function initClientPriorityClasses() {
+    const container = document.getElementById('client-priority-classes-checkboxes');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    AVAILABLE_CLASSES.forEach(className => {
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-2 cursor-pointer group px-3 py-2 bg-white rounded-lg border-2 border-gray-200 hover:border-red-300 transition-all duration-200';
+        
+        label.innerHTML = `
+            <input type="checkbox" class="priority-class-checkbox w-5 h-5 cursor-pointer accent-red-600 rounded transition-all duration-200 group-hover:scale-110" 
+                   value="${className}">
+            <span class="text-sm font-semibold text-gray-800 group-hover:text-red-600 transition-colors">${className}</span>
+        `;
+        
+        // Update style khi checkbox thay đổi
+        const checkbox = label.querySelector('input[type="checkbox"]');
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                label.classList.add('border-red-500', 'bg-red-50');
+            } else {
+                label.classList.remove('border-red-500', 'bg-red-50');
+            }
+        });
+        
+        container.appendChild(label);
+    });
+}
+
+// Load priority classes vào client modal
+function loadClientPriorityClasses(selectedClasses) {
+    const container = document.getElementById('client-priority-classes-checkboxes');
+    if (!container) return;
+    
+    const checkboxes = container.querySelectorAll('.priority-class-checkbox');
+    checkboxes.forEach(checkbox => {
+        const isChecked = selectedClasses.includes(checkbox.value);
+        checkbox.checked = isChecked;
+        
+        // Update style
+        const label = checkbox.closest('label');
+        if (label) {
+            if (isChecked) {
+                label.classList.add('border-red-500', 'bg-red-50');
+            } else {
+                label.classList.remove('border-red-500', 'bg-red-50');
+            }
+        }
+    });
+}
+
+function loadPriorityClasses(selectedClasses) {
+    const container = document.getElementById('priority-classes-checkboxes');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    AVAILABLE_CLASSES.forEach(className => {
+        const isChecked = selectedClasses.includes(className);
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-2 cursor-pointer group px-3 py-2 bg-white rounded-lg border-2 border-gray-200 hover:border-red-300 transition-all duration-200';
+        if (isChecked) {
+            label.classList.add('border-red-500', 'bg-red-50');
+        }
+        
+        label.innerHTML = `
+            <input type="checkbox" class="priority-class-checkbox w-5 h-5 cursor-pointer accent-red-600 rounded transition-all duration-200 group-hover:scale-110" 
+                   value="${className}" ${isChecked ? 'checked' : ''}>
+            <span class="text-sm font-semibold text-gray-800 group-hover:text-red-600 transition-colors">${className}</span>
+        `;
+        
+        container.appendChild(label);
+    });
+}
+
+async function savePriorityClasses() {
+    try {
+        const checkboxes = document.querySelectorAll('.priority-class-checkbox:checked');
+        const selectedClasses = Array.from(checkboxes).map(cb => cb.value);
+        
+        const response = await fetch('/api/alert-settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                priority_classes: selectedClasses
+            })
+        });
+        
+        if (response.ok) {
+            showToastNotification(
+                `Đã lưu ${selectedClasses.length} class ưu tiên: ${selectedClasses.join(', ')}`,
+                'success'
+            );
+            
+            const statusSpan = document.getElementById('priority-classes-status');
+            if (statusSpan) {
+                if (selectedClasses.length > 0) {
+                    statusSpan.textContent = `Đã lưu: ${selectedClasses.length} class ưu tiên`;
+                    statusSpan.style.color = '#2ecc71';
+                } else {
+                    statusSpan.textContent = 'Không có class ưu tiên';
+                    statusSpan.style.color = '#95a5a6';
+                }
+            }
+        } else {
+            const error = await response.json();
+            showToastNotification(`Lỗi: ${error.error || 'Không thể lưu class ưu tiên'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error saving priority classes:', error);
+        showToastNotification('Lỗi khi lưu class ưu tiên', 'error');
     }
 }
 

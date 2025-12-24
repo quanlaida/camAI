@@ -680,7 +680,7 @@ h1 {
 /* ✅ Trên màn hình nhỏ (mobile), cho phép trượt ngang để xem hết bảng */
 @media (max-width: 768px) {
     .detections-container {
-        overflow-x: auto;
+    overflow-x: auto;
         -webkit-overflow-scrolling: touch; /* mượt trên iOS/Android */
     }
 }

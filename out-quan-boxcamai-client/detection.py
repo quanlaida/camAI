@@ -102,6 +102,105 @@ def _inside_roi(x1, y1, x2, y2, roi_x1, roi_y1, roi_x2, roi_y2, frame_w, frame_h
     return (roi_x1 <= nx <= roi_x2) and (roi_y1 <= ny <= roi_y2)
 
 
+def _calculate_iou(box1, box2):
+    """Tính IoU giữa 2 box (x1, y1, x2, y2)."""
+    x1_1, y1_1, x2_1, y2_1 = box1
+    x1_2, y1_2, x2_2, y2_2 = box2
+    
+    # Tính intersection
+    x1_i = max(x1_1, x1_2)
+    y1_i = max(y1_1, y1_2)
+    x2_i = min(x2_1, x2_2)
+    y2_i = min(y2_1, y2_2)
+    
+    if x2_i <= x1_i or y2_i <= y1_i:
+        return 0.0
+    
+    inter_area = (x2_i - x1_i) * (y2_i - y1_i)
+    box1_area = (x2_1 - x1_1) * (y2_1 - y1_1)
+    box2_area = (x2_2 - x1_2) * (y2_2 - y1_2)
+    union_area = box1_area + box2_area - inter_area
+    
+    if union_area <= 0:
+        return 0.0
+    
+    return inter_area / union_area
+
+
+def _should_send_detection(current_boxes, current_classes, last_boxes, last_classes, iou_cooldown_threshold):
+    """
+    Kiểm tra xem có nên gửi detection mới không.
+    
+    Logic:
+    - Nếu không có detection trước đó → gửi
+    - Nếu số lượng vật khác nhau → gửi (có vật mới hoặc mất vật)
+    - Nếu số lượng giống nhau, so sánh IoU:
+      * Match mỗi vật hiện tại với vật trước đó (theo class_name và IoU cao nhất)
+      * Nếu IoU trung bình > threshold → không gửi (vật đứng im)
+      * Nếu IoU < threshold → gửi (vật di chuyển)
+    
+    Returns: (should_send: bool, reason: str)
+    """
+    # Lần đầu tiên hoặc không có detection trước đó → gửi
+    if last_boxes is None or len(last_boxes) == 0:
+        return True, "First detection"
+    
+    # Không có detection hiện tại → không gửi (nhưng logic này không nên xảy ra ở đây)
+    if len(current_boxes) == 0:
+        return False, "No current detections"
+    
+    # Số lượng vật khác nhau → gửi (có vật mới hoặc mất vật)
+    if len(current_boxes) != len(last_boxes):
+        return True, f"Object count changed: {len(current_boxes)} vs {len(last_boxes)}"
+    
+    # Số lượng giống nhau, so sánh IoU
+    # Match mỗi vật hiện tại với vật trước đó (ưu tiên cùng class_name và IoU cao nhất)
+    matched_indices = set()
+    ious = []
+    
+    for i, (curr_box, curr_class) in enumerate(zip(current_boxes, current_classes)):
+        best_iou = 0.0
+        best_match_idx = -1
+        
+        for j, (last_box, last_class) in enumerate(zip(last_boxes, last_classes)):
+            if j in matched_indices:
+                continue
+            
+            # Ưu tiên cùng class_name
+            if curr_class == last_class:
+                iou = _calculate_iou(curr_box, last_box)
+                if iou > best_iou:
+                    best_iou = iou
+                    best_match_idx = j
+        
+        # Nếu không match được cùng class, thử match với class khác
+        if best_match_idx == -1:
+            for j, (last_box, last_class) in enumerate(zip(last_boxes, last_classes)):
+                if j in matched_indices:
+                    continue
+                iou = _calculate_iou(curr_box, last_box)
+                if iou > best_iou:
+                    best_iou = iou
+                    best_match_idx = j
+        
+        if best_match_idx != -1:
+            matched_indices.add(best_match_idx)
+            ious.append(best_iou)
+    
+    # Tính IoU trung bình
+    if len(ious) == 0:
+        return True, "Could not match objects"
+    
+    avg_iou = sum(ious) / len(ious)
+    
+    # Nếu IoU trung bình > threshold → vật đứng im → không gửi
+    if avg_iou >= iou_cooldown_threshold:
+        return False, f"Objects stationary (avg IoU: {avg_iou:.2f} >= {iou_cooldown_threshold})"
+    
+    # IoU < threshold → vật di chuyển → gửi
+    return True, f"Objects moved (avg IoU: {avg_iou:.2f} < {iou_cooldown_threshold})"
+
+
 def detection_process(
     q,
     stop_event,
@@ -113,6 +212,7 @@ def detection_process(
     roi_y2=None,
     roi_regions_json=None,  # hiện tại chưa dùng lại multiple ROI ở bản khôi phục
     show_roi_overlay=True,
+    priority_classes=None,  # Danh sách class ưu tiên (không cần ROI)
 ):
     """Quy trình detection chính, khôi phục về trạng thái đơn giản (chưa có cooldown)."""
 
@@ -138,11 +238,19 @@ def detection_process(
 
     frame_count = 0
     last_send_time = 0.0
+    last_detection_boxes = None  # Lưu boxes từ lần gửi trước (list of tuples: (x1, y1, x2, y2))
+    last_detection_classes = None  # Lưu class_names từ lần gửi trước
 
     DETECTION_THRESHOLD = getattr(config, "DETECTION_THRESHOLD", 0.25)
     IOU_THRESHOLD = getattr(config, "IOU_THRESHOLD", 0.3)
     FRAME_SKIP = getattr(config, "FRAME_SKIP", 1)
     TIME_BETWEEN_SEND = getattr(config, "TIME_BETWEEN_SEND", 2.0)
+    IOU_COOLDOWN_THRESHOLD = getattr(config, "IOU_COOLDOWN_THRESHOLD", 0.7)
+    
+    # Priority classes: không cần ROI filter
+    if priority_classes is None:
+        priority_classes = []
+    print(f"🔥 Priority classes (không cần ROI): {priority_classes}")
 
     # Ưu tiên dùng CLASS_NAMES2 (model custom), fallback qua CLASS_NAMES
     CLASS_NAMES = getattr(config, "CLASS_NAMES2", getattr(config, "CLASS_NAMES", []))
@@ -385,30 +493,35 @@ def detection_process(
                 scores,
                 cls_ids,
             ):
-                # Lọc theo ROI (nếu có)
-                if not _inside_roi(
-                    bx1,
-                    by1,
-                    bx2,
-                    by2,
-                    roi_x1,
-                    roi_y1,
-                    roi_x2,
-                    roi_y2,
-                    frame_w,
-                    frame_h,
-                ):
-                    continue
+                # Định nghĩa class_name trước để kiểm tra priority
+                class_name = (
+                    CLASS_NAMES[int(cid)] if 0 <= int(cid) < len(CLASS_NAMES) else str(cid)
+                )
+                
+                # Class ưu tiên: bỏ qua ROI filter
+                is_priority = class_name in priority_classes
+                
+                # Lọc theo ROI (nếu có và không phải class ưu tiên)
+                if not is_priority:
+                    if not _inside_roi(
+                        bx1,
+                        by1,
+                        bx2,
+                        by2,
+                        roi_x1,
+                        roi_y1,
+                        roi_x2,
+                        roi_y2,
+                        frame_w,
+                        frame_h,
+                    ):
+                        continue
 
                 w_box = bx2 - bx1
                 h_box = by2 - by1
                 if w_box < 20 or h_box < 20:
                     # Bỏ box quá nhỏ, khó nhìn
                     continue
-
-                class_name = (
-                    CLASS_NAMES[int(cid)] if 0 <= int(cid) < len(CLASS_NAMES) else str(cid)
-                )
 
                 class_names.append(class_name)
                 confidences.append(float(score))
@@ -448,38 +561,68 @@ def detection_process(
                         break
                 continue
 
-            # Gửi detection lên server theo TIME_BETWEEN_SEND (chưa áp dụng cooldown IoU)
+            # Gửi detection lên server theo TIME_BETWEEN_SEND + cooldown IoU
             now = time.time()
             if now - last_send_time >= TIME_BETWEEN_SEND and not not_sent:
-                # Dùng thời gian local có timezone để hiển thị đúng ngày/giờ trên Dashboard
-                timestamp = datetime.now().astimezone()
-                image_filename = timestamp.strftime("%Y%m%d_%H%M%S_%f") + ".jpg"
-                image_path = os.path.join(config.IMAGES_DIR, image_filename)
-                try:
-                    cv2.imwrite(image_path, frame_original)
-                except Exception as e:
-                    print(f"⚠️ Failed to save image: {e}")
-                    image_filename = None
+                # Chuẩn bị boxes hiện tại để so sánh (list of tuples: (x1, y1, x2, y2))
+                current_boxes = [(xs[i], ys[i], xs[i] + ws[i], ys[i] + hs[i]) for i in range(len(xs))]
+                current_classes = class_names
+                
+                # Kiểm tra xem có priority class không
+                has_priority_class = any(cls in priority_classes for cls in current_classes)
+                
+                # Priority classes: Bỏ qua cooldown, luôn gửi
+                if has_priority_class:
+                    should_send = True
+                    priority_class_names = [cls for cls in current_classes if cls in priority_classes]
+                    reason = f"Priority class detected: {', '.join(priority_class_names)} (bypass cooldown)"
+                else:
+                    # Class thường: Kiểm tra cooldown IoU
+                    should_send, reason = _should_send_detection(
+                        current_boxes,
+                        current_classes,
+                        last_detection_boxes,
+                        last_detection_classes,
+                        IOU_COOLDOWN_THRESHOLD
+                    )
+                
+                if should_send:
+                    # Dùng thời gian local có timezone để hiển thị đúng ngày/giờ trên Dashboard
+                    timestamp = datetime.now().astimezone()
+                    image_filename = timestamp.strftime("%Y%m%d_%H%M%S_%f") + ".jpg"
+                    image_path = os.path.join(config.IMAGES_DIR, image_filename)
+                    try:
+                        cv2.imwrite(image_path, frame_original)
+                    except Exception as e:
+                        print(f"⚠️ Failed to save image: {e}")
+                        image_filename = None
 
-                detection_data = {
-                    "timestamp": timestamp.isoformat(),
-                    "class_name": class_names,
-                    "confidence": confidences,
-                    "image_path": image_filename,
-                    "bbox_x": xs,
-                    "bbox_y": ys,
-                    "bbox_width": ws,
-                    "bbox_height": hs,
-                    "metadata": {
-                        "frame_width": frame_w,
-                        "frame_height": frame_h,
-                        "detection_id": timestamp.strftime("%Y%m%d_%H%M%S_%f"),
-                    },
-                }
+                    detection_data = {
+                        "timestamp": timestamp.isoformat(),
+                        "class_name": class_names,
+                        "confidence": confidences,
+                        "image_path": image_filename,
+                        "bbox_x": xs,
+                        "bbox_y": ys,
+                        "bbox_width": ws,
+                        "bbox_height": hs,
+                        "metadata": {
+                            "frame_width": frame_w,
+                            "frame_height": frame_h,
+                            "detection_id": timestamp.strftime("%Y%m%d_%H%M%S_%f"),
+                        },
+                    }
 
-                print(f"Sending detections to server: {class_names}")
-                send_detection_to_server(detection_data)
-                last_send_time = now
+                    print(f"✅ Sending detections to server: {class_names} (Reason: {reason})")
+                    send_detection_to_server(detection_data)
+                    last_send_time = now
+                    
+                    # Lưu detection hiện tại để so sánh lần sau
+                    last_detection_boxes = current_boxes
+                    last_detection_classes = current_classes
+                else:
+                    # Không gửi vì vật đứng im
+                    print(f"⏸️ Skipping detection (Reason: {reason})")
 
             # Gửi processed frame để web xem
             send_processed_frame(frame_original)

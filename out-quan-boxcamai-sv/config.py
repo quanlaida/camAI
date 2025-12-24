@@ -32,7 +32,7 @@ ALERT_EMAIL_PASSWORD = os.getenv('ALERT_EMAIL_PASSWORD', '')  # App Password t�
 
 # Telegram Bot Configuration
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8536552488:AAGmQD-vjI9nP3jV4dli1ToNNdKhfcv5rXU')  # Bot token từ @BotFather
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '5089356978')  # Chat ID để nhận cảnh báo (cấu hình sẵn)
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '-5009640116')  # Chat ID của nhóm "Cảnh báo tự động"
 TELEGRAM_ENABLED = os.getenv('TELEGRAM_ENABLED', 'true').lower() == 'true'  # Bật/tắt cảnh báo Telegram (mặc định: true)
 
 # Detection Configuration

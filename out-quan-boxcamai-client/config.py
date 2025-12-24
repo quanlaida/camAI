@@ -22,6 +22,10 @@ IOU_THRESHOLD = 0.3
 # FRAME_SKIP = 3: Detect mỗi 3 frames (nhanh hơn 3x)
 FRAME_SKIP = 1  # Detect mọi frame để chính xác nhất
 TIME_BETWEEN_SEND = 2.0
+# IoU Cooldown: Chỉ gửi detection mới nếu vật di chuyển hoặc có vật mới
+# Nếu IoU trung bình >= IOU_COOLDOWN_THRESHOLD → vật đứng im → không gửi
+# Nếu IoU trung bình < IOU_COOLDOWN_THRESHOLD → vật di chuyển → gửi
+IOU_COOLDOWN_THRESHOLD = 0.7  # 0.7 = 70% overlap → vật đứng im
 
 # ONNX Runtime threading (điều khiển số core logic)
 # 3 thread ~ dùng khoảng 3 core, mượt hơn nhưng nặng hơn 2 core
