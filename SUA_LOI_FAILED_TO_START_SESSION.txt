@@ -1,0 +1,161 @@
+═══════════════════════════════════════════════════════════════
+SỬA LỖI: Failed to start session
+═══════════════════════════════════════════════════════════════
+
+📌 LỖI:
+───────────────────────────────────────────────────────────────
+- Đăng nhập đúng mật khẩu
+- Nhưng báo lỗi "Failed to start session"
+
+→ Desktop environment chưa được cài đặt hoặc cấu hình sai
+
+═══════════════════════════════════════════════════════════════
+CÁCH SỬA:
+═══════════════════════════════════════════════════════════════
+
+BƯỚC 1: KIỂM TRA DESKTOP ENVIRONMENT
+───────────────────────────────────────────────────────────────
+
+# Kiểm tra desktop đã cài chưa
+ls /usr/share/xsessions/
+
+# Nếu rỗng hoặc không có file .desktop, cần cài desktop
+
+BƯỚC 2: CÀI ĐẶT DESKTOP ENVIRONMENT
+───────────────────────────────────────────────────────────────
+
+# Option 1: Raspberry Pi Desktop (mặc định, nhẹ)
+sudo apt update
+sudo apt install raspberrypi-ui-mods -y
+
+# Option 2: XFCE (nhẹ, ổn định) - KHUYẾN NGHỊ
+sudo apt update
+sudo apt install xfce4 xfce4-goodies -y
+
+# Option 3: LXDE (rất nhẹ)
+sudo apt update
+sudo apt install lxde -y
+
+BƯỚC 3: KIỂM TRA SESSION FILES
+───────────────────────────────────────────────────────────────
+
+# Sau khi cài, kiểm tra lại
+ls /usr/share/xsessions/
+
+# Nên thấy các file như:
+# - raspberrypi.desktop
+# - xfce.desktop
+# - LXDE.desktop
+
+BƯỚC 4: CẤU HÌNH LIGHTDM
+───────────────────────────────────────────────────────────────
+
+# Sửa cấu hình
+sudo nano /etc/lightdm/lightdm.conf
+
+# Tìm section [Seat:*] và thêm/sửa:
+[Seat:*]
+autologin-user=leviathan
+autologin-user-timeout=0
+user-session=raspberrypi
+# Hoặc user-session=xfce nếu dùng XFCE
+# Hoặc user-session=LXDE nếu dùng LXDE
+
+# Lưu file (Ctrl+O, Enter, Ctrl+X)
+
+BƯỚC 5: TẠO XSESSIONRC CHO USER
+───────────────────────────────────────────────────────────────
+
+# Tạo file .xsessionrc trong home directory
+nano ~/.xsessionrc
+
+# Thêm nội dung (chọn một):
+# Nếu dùng Raspberry Pi Desktop:
+exec startx
+
+# Nếu dùng XFCE:
+exec startxfce4
+
+# Nếu dùng LXDE:
+exec startlxde
+
+# Lưu và cấp quyền
+chmod +x ~/.xsessionrc
+
+BƯỚC 6: RESTART LIGHTDM
+───────────────────────────────────────────────────────────────
+
+sudo systemctl restart lightdm
+
+# Kiểm tra log
+sudo journalctl -u lightdm.service -n 50 --no-pager
+
+═══════════════════════════════════════════════════════════════
+CÁCH KHÁC: CẤU HÌNH TỰ ĐỘNG
+═══════════════════════════════════════════════════════════════
+
+# Cài XFCE (khuyến nghị)
+sudo apt update && sudo apt install xfce4 xfce4-goodies -y
+
+# Cấu hình lightdm tự động
+sudo tee /etc/lightdm/lightdm.conf > /dev/null <<EOF
+[Seat:*]
+autologin-user=leviathan
+autologin-user-timeout=0
+user-session=xfce
+EOF
+
+# Tạo .xsessionrc
+echo "exec startxfce4" > ~/.xsessionrc
+chmod +x ~/.xsessionrc
+
+# Restart
+sudo systemctl restart lightdm
+
+═══════════════════════════════════════════════════════════════
+KIỂM TRA LOG CHI TIẾT:
+═══════════════════════════════════════════════════════════════
+
+# Xem log lightdm
+sudo journalctl -u lightdm.service -n 100 --no-pager | grep -i "session\|error\|fail"
+
+# Xem log X server
+sudo cat /var/log/Xorg.0.log | tail -50 | grep -i error
+
+# Xem log user session
+cat ~/.xsession-errors | tail -20
+
+═══════════════════════════════════════════════════════════════
+LỆNH NHANH NHẤT (KHUYẾN NGHỊ):
+═══════════════════════════════════════════════════════════════
+
+# 1. Cài XFCE
+sudo apt update && sudo apt install xfce4 xfce4-goodies -y
+
+# 2. Cấu hình lightdm
+sudo tee /etc/lightdm/lightdm.conf > /dev/null <<EOF
+[Seat:*]
+autologin-user=leviathan
+autologin-user-timeout=0
+user-session=xfce
+EOF
+
+# 3. Tạo .xsessionrc
+echo "exec startxfce4" > ~/.xsessionrc
+chmod +x ~/.xsessionrc
+
+# 4. Restart
+sudo systemctl restart lightdm
+
+# 5. Đợi 10 giây và thử đăng nhập lại
+
+═══════════════════════════════════════════════════════════════
+LƯU Ý:
+═══════════════════════════════════════════════════════════════
+
+1. XFCE là lựa chọn tốt nhất (nhẹ, ổn định)
+2. Sau khi cài desktop, cần restart lightdm
+3. Đảm bảo user-session trong lightdm.conf khớp với desktop đã cài
+4. Nếu vẫn lỗi, xem log để biết lỗi cụ thể
+
+═══════════════════════════════════════════════════════════════

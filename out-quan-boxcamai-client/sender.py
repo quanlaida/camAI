@@ -3,8 +3,9 @@ import json
 import threading
 from multiprocessing import Queue, Event
 import time
-import config 
+import config
 import os
+import io
 
 def get_serial_number():
     """Đọc Serial number từ file serial_number.txt"""
@@ -30,8 +31,12 @@ detection_queue = Queue()
 send_thread = None
 stop_send_thread = Event()
 
-def send_detection_to_server(detection_data):
-    """Add detection data to queue for asynchronous sending"""
+def send_detection_to_server(detection_data, image_bytes=None):
+    """Add detection data to queue for asynchronous sending.
+
+    - Nếu `image_bytes` được truyền (client mới): gửi trực tiếp ảnh từ RAM, KHÔNG cần lưu file local.
+    - Nếu không có `image_bytes` (client cũ): fallback đọc file từ `config.IMAGES_DIR` như trước.
+    """
     # Add client information to detection data
     serial_number = get_serial_number()
     if serial_number:
@@ -43,35 +48,67 @@ def send_detection_to_server(detection_data):
     detection_data['client_latitude'] = config.CLIENT_LATITUDE 
     detection_data['client_longitude'] = config.CLIENT_LONGITUDE 
 
-    detection_queue.put(detection_data)
+    # Gắn kèm image_bytes (nếu có) để worker quyết định cách gửi
+    payload = {
+        "detection_data": detection_data,
+        "image_bytes": image_bytes,
+    }
+    detection_queue.put(payload)
 
 def send_worker():
     """Background worker to send detections to server"""
     while not stop_send_thread.is_set():
         try:
-            # Get detection data from queue with timeout
-            detection_data = detection_queue.get(timeout=1.0)
+            # Get detection payload from queue with timeout
+            payload = detection_queue.get(timeout=1.0)
+            detection_data = payload.get("detection_data") if isinstance(payload, dict) else payload
+            image_bytes = payload.get("image_bytes") if isinstance(payload, dict) else None
 
             print(f"Sending {detection_data['class_name']} to server")
 
-            # Prepare image file path
-            image_path_full = os.path.join(config.IMAGES_DIR, detection_data['image_path'])
-            if not os.path.exists(image_path_full):
-                print(f"Image file not found: {image_path_full}")
-                detection_queue.task_done()
-                continue
+            # Chuẩn bị dữ liệu multipart
+            files = None
+
+            # Ưu tiên dùng image_bytes (client mới: không lưu file)
+            if image_bytes is not None:
+                try:
+                    image_filename = detection_data.get("image_path") or "frame.jpg"
+                    files = {
+                        "image": (image_filename, io.BytesIO(image_bytes), "image/jpeg"),
+                    }
+                except Exception as e:
+                    print(f"Error preparing in-memory image for sending: {e}")
+                    detection_queue.task_done()
+                    continue
+            else:
+                # Fallback: client cũ vẫn dùng file trên đĩa
+                image_path_full = os.path.join(config.IMAGES_DIR, detection_data.get("image_path", ""))
+                if not os.path.exists(image_path_full):
+                    print(f"Image file not found: {image_path_full}")
+                    detection_queue.task_done()
+                    continue
+                try:
+                    files = {
+                        "image": (
+                            detection_data.get("image_path", os.path.basename(image_path_full)),
+                            open(image_path_full, "rb"),
+                            "image/jpeg",
+                        )
+                    }
+                except Exception as e:
+                    print(f"Error opening image file: {e}")
+                    detection_queue.task_done()
+                    continue
 
             # Send to server as multipart
             try:
-                with open(image_path_full, 'rb') as img_file:
-                    files = {'image': (detection_data['image_path'], img_file, 'image/jpeg')}
-                    data = {'json_data': json.dumps(detection_data)}
-                    response = requests.post(
-                        f'https://{config.SERVER_HOST}:{config.SERVER_PORT}/api/detections',
-                        files=files,
-                        data=data,
-                        timeout=10
-                    )
+                data = {"json_data": json.dumps(detection_data)}
+                response = requests.post(
+                    f"https://{config.SERVER_HOST}:{config.SERVER_PORT}/api/detections",
+                    files=files,
+                    data=data,
+                    timeout=10,
+                )
                 if response.status_code in (200, 201):
                     print(f"Detection sent successfully: {detection_data['class_name']}")
                 else:
@@ -79,10 +116,19 @@ def send_worker():
                     try:
                         error_data = response.json()
                         print(f"error: {error_data.get('error', 'Unknown error')}")
-                    except:
+                    except Exception:
                         print(f"error: {response.text}")
             except requests.exceptions.RequestException as e:
                 print(f"Error sending detection: {e}")
+            finally:
+                # Đóng file nếu là file trên đĩa
+                if files:
+                    file_obj = files.get("image", (None, None, None))[1]
+                    if hasattr(file_obj, "close"):
+                        try:
+                            file_obj.close()
+                        except Exception:
+                            pass
 
             # Mark task as done
             detection_queue.task_done()

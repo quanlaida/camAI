@@ -590,17 +590,24 @@ def detection_process(
                     # Dùng thời gian local có timezone để hiển thị đúng ngày/giờ trên Dashboard
                     timestamp = datetime.now().astimezone()
                     image_filename = timestamp.strftime("%Y%m%d_%H%M%S_%f") + ".jpg"
-                    image_path = os.path.join(config.IMAGES_DIR, image_filename)
+
+                    # THAY ĐỔI: chỉ encode JPEG trong memory, KHÔNG lưu file ở client
+                    image_bytes = None
                     try:
-                        cv2.imwrite(image_path, frame_original)
+                        success, buffer = cv2.imencode(".jpg", frame_original)
+                        if not success:
+                            raise ValueError("Failed to encode frame to JPEG")
+                        image_bytes = buffer.tobytes()
                     except Exception as e:
-                        print(f"⚠️ Failed to save image: {e}")
+                        print(f"⚠️ Failed to encode image to JPEG: {e}")
                         image_filename = None
 
                     detection_data = {
                         "timestamp": timestamp.isoformat(),
                         "class_name": class_names,
                         "confidence": confidences,
+                        # Server dùng trường 'image_path' như một tên file để lưu,
+                        # nên vẫn gửi tên file nhưng KHÔNG lưu file trên client.
                         "image_path": image_filename,
                         "bbox_x": xs,
                         "bbox_y": ys,
@@ -614,7 +621,8 @@ def detection_process(
                     }
 
                     print(f"✅ Sending detections to server: {class_names} (Reason: {reason})")
-                    send_detection_to_server(detection_data)
+                    # Truyền kèm ảnh dạng bytes, để sender gửi trực tiếp mà không cần lưu file
+                    send_detection_to_server(detection_data, image_bytes=image_bytes)
                     last_send_time = now
                     
                     # Lưu detection hiện tại để so sánh lần sau

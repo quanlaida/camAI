@@ -1,0 +1,109 @@
+═══════════════════════════════════════════════════════════════
+HƯỚNG DẪN CHẠY SCRIPT TEST TRÊN RASPBERRY PI
+═══════════════════════════════════════════════════════════════
+
+📌 FILE: test_detection_from_pi.py
+───────────────────────────────────────────────────────────────
+
+✅ CHẠY TRÊN: Raspberry Pi
+───────────────────────────────────────────────────────────────
+
+Mục đích:
+- Test gửi detection từ Pi lên server
+- Kiểm tra Serial number có khớp không
+- Kiểm tra kết nối và format dữ liệu
+
+═══════════════════════════════════════════════════════════════
+CÁCH SỬA DỤNG:
+═══════════════════════════════════════════════════════════════
+
+BƯỚC 1: KIỂM TRA THƯ VIỆN
+───────────────────────────────────────────────────────────────
+
+# Kiểm tra Python
+python3 --version
+
+# Kiểm tra OpenCV
+python3 -c "import cv2; print(cv2.__version__)"
+
+# Kiểm tra requests
+python3 -c "import requests; print(requests.__version__)"
+
+# Nếu thiếu, cài đặt:
+sudo apt update
+sudo apt install python3-pip python3-opencv -y
+pip3 install requests urllib3
+
+BƯỚC 2: KIỂM TRA SERIAL NUMBER
+───────────────────────────────────────────────────────────────
+
+# Kiểm tra Serial number trên Pi
+cat serial_number.txt
+
+# Hoặc nếu file ở thư mục client:
+cat out-quan-boxcamai-client/serial_number.txt
+
+# Đảm bảo Serial number này đã được tạo trên server (web UI)
+
+BƯỚC 3: CHẠY SCRIPT
+───────────────────────────────────────────────────────────────
+
+# Chạy script
+python3 test_detection_from_pi.py
+
+# Hoặc nếu dùng Python:
+python test_detection_from_pi.py
+
+BƯỚC 4: XEM KẾT QUẢ
+───────────────────────────────────────────────────────────────
+
+Script sẽ:
+1. Đọc Serial number từ file serial_number.txt
+2. Tạo ảnh test
+3. Gửi detection lên server
+4. Hiển thị kết quả thành công/thất bại
+
+═══════════════════════════════════════════════════════════════
+CẤU HÌNH:
+═══════════════════════════════════════════════════════════════
+
+Script tự động:
+- Đọc Serial number từ file serial_number.txt
+- Server: boxcamai.cloud:443 (HTTPS)
+- Tạo ảnh test bằng OpenCV
+
+Nếu cần sửa:
+- Mở file: test_detection_from_pi.py
+- Sửa SERVER_HOST, SERVER_PORT nếu cần
+
+═══════════════════════════════════════════════════════════════
+LƯU Ý:
+═══════════════════════════════════════════════════════════════
+
+1. Đảm bảo Serial number khớp với server
+2. Đảm bảo client đã được tạo trên server (web UI)
+3. Đảm bảo có kết nối internet
+4. Đảm bảo server đang chạy
+
+═══════════════════════════════════════════════════════════════
+NẾU GẶP LỖI:
+═══════════════════════════════════════════════════════════════
+
+1. Lỗi "Module not found":
+   → Cài đặt: pip3 install requests urllib3
+   → Cài OpenCV: sudo apt install python3-opencv
+
+2. Lỗi "Serial number not found":
+   → Tạo file serial_number.txt với Serial number thật
+   → Hoặc sửa trong script: SERIAL_NUMBER = "202500000"
+
+3. Lỗi "Client not found":
+   → Kiểm tra Serial number trên Pi và server có khớp không
+   → Tạo client trên server với Serial number đúng
+
+4. Lỗi kết nối:
+   → Kiểm tra internet
+   → Kiểm tra firewall
+   → Kiểm tra server có đang chạy không
+
+═══════════════════════════════════════════════════════════════

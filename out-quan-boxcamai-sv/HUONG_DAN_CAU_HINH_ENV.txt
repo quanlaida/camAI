@@ -1,0 +1,78 @@
+═══════════════════════════════════════════════════════════════════════════
+    HƯỚNG DẪN CẤU HÌNH APP PASSWORD CỐ ĐỊNH Ở SERVER (FILE .ENV)
+═══════════════════════════════════════════════════════════════════════════
+
+📌 MỤC ĐÍCH:
+   Cố định App Password ở server, không cần nhập trên web interface
+
+═══════════════════════════════════════════════════════════════════════════
+CÁC BƯỚC THỰC HIỆN
+═══════════════════════════════════════════════════════════════════════════
+
+BƯỚC 1: TẠO FILE .ENV
+───────────────────────────────────────────────────────────────────────────
+1. Vào thư mục: out-quan-boxcamai-sv/
+2. Tạo file mới tên: .env
+   (Lưu ý: File bắt đầu bằng dấu chấm, không có phần mở rộng)
+
+BƯỚC 2: THÊM NỘI DUNG VÀO FILE .ENV
+───────────────────────────────────────────────────────────────────────────
+Mở file .env và thêm:
+
+ALERT_EMAIL_SENDER=camainotify@gmail.com
+ALERT_EMAIL_PASSWORD=your-app-password-here
+
+Ví dụ:
+ALERT_EMAIL_SENDER=camainotify@gmail.com
+ALERT_EMAIL_PASSWORD=abcdefghijklmnop
+
+Lưu ý:
+- Bỏ khoảng trắng trong App Password
+- Không có dấu ngoặc kép
+- Mỗi dòng một biến
+
+BƯỚC 3: KHỞI ĐỘNG LẠI SERVER
+───────────────────────────────────────────────────────────────────────────
+1. Dừng server hiện tại (Ctrl+C)
+2. Khởi động lại: python server.py
+
+═══════════════════════════════════════════════════════════════════════════
+CÁCH LẤY APP PASSWORD
+═══════════════════════════════════════════════════════════════════════════
+
+1. Vào: https://myaccount.google.com/apppasswords
+2. Chọn "Mail" hoặc "Other" → nhập "CamAI"
+3. Click "Tạo" → Copy mật khẩu 16 ký tự
+4. Bỏ khoảng trắng và dán vào file .env
+
+═══════════════════════════════════════════════════════════════════════════
+CÁCH HOẠT ĐỘNG
+═══════════════════════════════════════════════════════════════════════════
+
+Server sẽ ưu tiên lấy từ:
+1. File .env (nếu có)
+2. Environment variables (nếu có)
+3. config.py (giá trị mặc định)
+
+Nếu có file .env, server sẽ dùng App Password từ đó,
+không cần nhập trên web interface.
+
+═══════════════════════════════════════════════════════════════════════════
+LƯU Ý BẢO MẬT
+═══════════════════════════════════════════════════════════════════════════
+
+⚠️ QUAN TRỌNG:
+• KHÔNG commit file .env lên Git
+• File .env đã được thêm vào .gitignore
+• Chỉ lưu trên server, không chia sẻ
+
+═══════════════════════════════════════════════════════════════════════════
+KIỂM TRA
+═══════════════════════════════════════════════════════════════════════════
+
+Sau khi tạo file .env và khởi động lại server:
+1. Mở web interface
+2. Test email
+3. Nếu thành công = App Password đã được load từ .env
+
+═══════════════════════════════════════════════════════════════════════════

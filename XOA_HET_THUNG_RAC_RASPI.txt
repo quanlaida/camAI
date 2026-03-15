@@ -1,0 +1,51 @@
+═══════════════════════════════════════════════════════════════
+LỆNH XÓA HẾT THÙNG RÁC TRÊN RASPBERRY PI
+═══════════════════════════════════════════════════════════════
+
+📌 LỆNH NHANH NHẤT:
+───────────────────────────────────────────────────────────────
+
+# Xóa hết thùng rác:
+rm -rf ~/.local/share/Trash/*
+
+# Hoặc đầy đủ hơn:
+rm -rf ~/.local/share/Trash/files/*
+rm -rf ~/.local/share/Trash/info/*
+
+═══════════════════════════════════════════════════════════════
+CÁC LỆNH KHÁC:
+═══════════════════════════════════════════════════════════════
+
+# Xóa với sudo (nếu cần):
+sudo rm -rf ~/.local/share/Trash/*
+
+# Xóa và hiển thị file đã xóa:
+rm -rfv ~/.local/share/Trash/*
+
+# Kiểm tra dung lượng trước và sau:
+du -sh ~/.local/share/Trash
+rm -rf ~/.local/share/Trash/*
+du -sh ~/.local/share/Trash
+
+═══════════════════════════════════════════════════════════════
+TẠO ALIAS ĐỂ XÓA NHANH:
+═══════════════════════════════════════════════════════════════
+
+# Thêm vào ~/.bashrc:
+echo 'alias empty-trash="rm -rf ~/.local/share/Trash/*"' >> ~/.bashrc
+
+# Reload:
+source ~/.bashrc
+
+# Sau đó chỉ cần gõ:
+empty-trash
+
+═══════════════════════════════════════════════════════════════
+LƯU Ý:
+═══════════════════════════════════════════════════════════════
+
+- Lệnh này sẽ xóa VĨNH VIỄN tất cả file trong thùng rác
+- Không thể khôi phục sau khi xóa
+- Nên kiểm tra dung lượng trước: du -sh ~/.local/share/Trash
+
+═══════════════════════════════════════════════════════════════

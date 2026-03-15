@@ -1,0 +1,111 @@
+═══════════════════════════════════════════════════════════════
+HƯỚNG DẪN MỞ VÀ QUẢN LÝ THÙNG RÁC TRÊN RASPBERRY PI
+═══════════════════════════════════════════════════════════════
+
+📌 VỊ TRÍ THÙNG RÁC:
+───────────────────────────────────────────────────────────────
+- Thùng rác user: ~/.local/share/Trash
+- Hoặc: ~/.Trash
+- Files: ~/.local/share/Trash/files
+- Info: ~/.local/share/Trash/info
+
+═══════════════════════════════════════════════════════════════
+CÁCH 1: MỞ BẰNG DÒNG LỆNH
+═══════════════════════════════════════════════════════════════
+
+# Mở thùng rác bằng file manager (nếu có GUI):
+nautilus ~/.local/share/Trash
+# Hoặc:
+thunar ~/.local/share/Trash
+# Hoặc:
+pcmanfm ~/.local/share/Trash
+
+# Xem nội dung thùng rác:
+ls -la ~/.local/share/Trash/files
+
+# Xem dung lượng thùng rác:
+du -sh ~/.local/share/Trash
+
+═══════════════════════════════════════════════════════════════
+CÁCH 2: XEM VÀ XÓA BẰNG DÒNG LỆNH
+═══════════════════════════════════════════════════════════════
+
+# Xem danh sách file trong thùng rác:
+ls -lh ~/.local/share/Trash/files
+
+# Xem dung lượng:
+du -sh ~/.local/share/Trash/files
+
+# Xóa tất cả file trong thùng rác:
+rm -rf ~/.local/share/Trash/files/*
+rm -rf ~/.local/share/Trash/info/*
+
+# Hoặc dùng lệnh empty trash:
+rm -rf ~/.local/share/Trash/*
+
+═══════════════════════════════════════════════════════════════
+CÁCH 3: MỞ BẰNG GUI (NẾU CÓ DESKTOP)
+═══════════════════════════════════════════════════════════════
+
+XFCE:
+───────────────────────────────────────────────────────────────
+- Mở File Manager (Thunar)
+- Click vào "Trash" ở sidebar bên trái
+- Hoặc vào: ~/.local/share/Trash
+
+Raspberry Pi Desktop:
+───────────────────────────────────────────────────────────────
+- Mở File Manager
+- Click vào "Trash" ở sidebar
+- Hoặc vào: ~/.local/share/Trash
+
+LXDE:
+───────────────────────────────────────────────────────────────
+- Mở PCManFM
+- Click vào "Trash" ở sidebar
+- Hoặc vào: ~/.local/share/Trash
+
+═══════════════════════════════════════════════════════════════
+CÁCH 4: TẠO ALIAS ĐỂ MỞ NHANH
+═══════════════════════════════════════════════════════════════
+
+# Thêm vào ~/.bashrc:
+nano ~/.bashrc
+
+# Thêm dòng:
+alias trash='cd ~/.local/share/Trash/files && ls -lh'
+alias empty-trash='rm -rf ~/.local/share/Trash/*'
+
+# Lưu và reload:
+source ~/.bashrc
+
+# Sau đó dùng:
+trash          # Xem thùng rác
+empty-trash    # Xóa hết thùng rác
+
+═══════════════════════════════════════════════════════════════
+LỆNH NHANH NHẤT:
+═══════════════════════════════════════════════════════════════
+
+# Xem thùng rác:
+ls -lh ~/.local/share/Trash/files
+
+# Xem dung lượng:
+du -sh ~/.local/share/Trash
+
+# Xóa hết thùng rác:
+rm -rf ~/.local/share/Trash/*
+
+# Mở bằng file manager (nếu có):
+nautilus ~/.local/share/Trash 2>/dev/null || thunar ~/.local/share/Trash 2>/dev/null || pcmanfm ~/.local/share/Trash 2>/dev/null
+
+═══════════════════════════════════════════════════════════════
+LƯU Ý:
+═══════════════════════════════════════════════════════════════
+
+1. Thùng rác có thể chiếm nhiều dung lượng
+2. Nên xóa thùng rác thường xuyên để giải phóng dung lượng
+3. File trong thùng rác vẫn chiếm dung lượng đĩa
+4. Xóa thùng rác sẽ xóa vĩnh viễn (không thể khôi phục)
+
+═══════════════════════════════════════════════════════════════

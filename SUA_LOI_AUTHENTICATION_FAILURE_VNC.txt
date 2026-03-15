@@ -1,0 +1,128 @@
+═══════════════════════════════════════════════════════════════
+SỬA LỖI: authentication failure khi đăng nhập VNC
+═══════════════════════════════════════════════════════════════
+
+📌 LỖI:
+───────────────────────────────────────────────────────────────
+pam_unix(lightdm:auth): authentication failure
+
+→ Mật khẩu sai hoặc user không tồn tại
+
+═══════════════════════════════════════════════════════════════
+CÁCH SỬA:
+═══════════════════════════════════════════════════════════════
+
+BƯỚC 1: KIỂM TRA USER CÓ TỒN TẠI KHÔNG
+───────────────────────────────────────────────────────────────
+
+# Kiểm tra user leviathan
+id leviathan
+
+# Xem danh sách users
+cat /etc/passwd | grep leviathan
+
+# Nếu không có, tạo user mới:
+sudo useradd -m -s /bin/bash leviathan
+sudo usermod -aG sudo leviathan
+
+BƯỚC 2: RESET MẬT KHẨU
+───────────────────────────────────────────────────────────────
+
+# Reset mật khẩu cho user leviathan
+sudo passwd leviathan
+
+# Nhập mật khẩu mới 2 lần
+# Lưu ý: Mật khẩu không hiển thị khi gõ
+
+BƯỚC 3: KIỂM TRA QUYỀN ĐĂNG NHẬP
+───────────────────────────────────────────────────────────────
+
+# Kiểm tra user có quyền đăng nhập không
+sudo usermod -s /bin/bash leviathan
+
+# Kiểm tra home directory
+ls -la /home/leviathan/
+
+# Nếu không có, tạo:
+sudo mkdir -p /home/leviathan
+sudo chown -R leviathan:leviathan /home/leviathan
+
+BƯỚC 4: SỬA LỖI DATA DIRECTORY
+───────────────────────────────────────────────────────────────
+
+# Tạo thư mục data
+sudo mkdir -p /var/lib/lightdm/data
+sudo chown -R lightdm:lightdm /var/lib/lightdm/
+sudo chmod 755 /var/lib/lightdm/data
+
+BƯỚC 5: RESTART LIGHTDM
+───────────────────────────────────────────────────────────────
+
+sudo systemctl restart lightdm
+
+# Kiểm tra log
+sudo journalctl -u lightdm.service -n 30 --no-pager
+
+═══════════════════════════════════════════════════════════════
+CÁCH KHÁC: TẠO USER MỚI
+═══════════════════════════════════════════════════════════════
+
+Nếu user leviathan có vấn đề, tạo user mới:
+
+# Tạo user mới
+sudo adduser newuser
+
+# Thêm vào group sudo
+sudo usermod -aG sudo newuser
+
+# Sửa cấu hình lightdm để dùng user mới
+sudo nano /etc/lightdm/lightdm.conf
+# Đổi: autologin-user=newuser
+
+# Restart
+sudo systemctl restart lightdm
+
+═══════════════════════════════════════════════════════════════
+KIỂM TRA PAM AUTHENTICATION
+═══════════════════════════════════════════════════════════════
+
+# Kiểm tra PAM config
+sudo cat /etc/pam.d/lightdm
+
+# Nếu có vấn đề, backup và sửa:
+sudo cp /etc/pam.d/lightdm /etc/pam.d/lightdm.backup
+sudo nano /etc/pam.d/lightdm
+
+# Đảm bảo có dòng:
+auth    sufficient  pam_unix.so nullok_secure
+
+═══════════════════════════════════════════════════════════════
+LỆNH NHANH NHẤT:
+═══════════════════════════════════════════════════════════════
+
+# 1. Reset mật khẩu
+sudo passwd leviathan
+
+# 2. Sửa data directory
+sudo mkdir -p /var/lib/lightdm/data
+sudo chown -R lightdm:lightdm /var/lib/lightdm/
+
+# 3. Đảm bảo user có home directory
+sudo mkdir -p /home/leviathan
+sudo chown -R leviathan:leviathan /home/leviathan
+
+# 4. Restart
+sudo systemctl restart lightdm
+
+# 5. Thử đăng nhập lại với mật khẩu mới
+
+═══════════════════════════════════════════════════════════════
+LƯU Ý:
+═══════════════════════════════════════════════════════════════
+
+1. Mật khẩu không hiển thị khi gõ (bình thường)
+2. Nhập mật khẩu 2 lần khi reset
+3. Đảm bảo Caps Lock không bật
+4. Nếu vẫn lỗi, thử tạo user mới
+
+═══════════════════════════════════════════════════════════════

@@ -1,0 +1,124 @@
+═══════════════════════════════════════════════════════════════
+DANH SÁCH FILE ĐÃ SỬA ĐỂ FIX LỖI KHÔNG LƯU DETECTION
+═══════════════════════════════════════════════════════════════
+
+📌 FILE ĐÃ SỬA:
+───────────────────────────────────────────────────────────────
+
+1. out-quan-boxcamai-sv/server.py
+   ✅ Đã sửa toàn bộ phần giao tiếp Database
+   ✅ Thêm logging chi tiết từng bước
+   ✅ Thêm error handling đầy đủ
+   ✅ Sửa lỗi session management
+
+═══════════════════════════════════════════════════════════════
+CHI TIẾT CÁC THAY ĐỔI - KIỂM TRA TỪNG DÒNG DATABASE:
+═══════════════════════════════════════════════════════════════
+
+FILE: out-quan-boxcamai-sv/server.py
+
+═══════════════════════════════════════════════════════════════
+PHẦN 1: TÌM CLIENT TRONG DATABASE (Dòng 398-437)
+═══════════════════════════════════════════════════════════════
+
+✅ ĐÃ SỬA:
+1. Dòng 405: Kiểm tra có client_id/serial_number/client_name không
+   - Nếu không có → return error ngay
+
+2. Dòng 406-437: Tạo session và query client
+   - Đổi tên biến: session → client_session (tránh conflict)
+   - Thêm error handling cho query
+   - Thêm error handling cho commit() khi update updated_at
+   - Sửa logic close session: không close 2 lần
+   - Thêm rollback nếu có lỗi
+
+3. Dòng 426: Commit khi update updated_at
+   - Thêm try/except riêng
+   - Nếu lỗi → rollback nhưng vẫn tiếp tục (không block lưu detection)
+
+4. Dòng 433: Return khi không tìm thấy client
+   - Bỏ session.close() (để finally xử lý)
+   - Tránh double close
+
+═══════════════════════════════════════════════════════════════
+PHẦN 2: LƯU DETECTION VÀO DATABASE (Dòng 465-507)
+═══════════════════════════════════════════════════════════════
+
+✅ ĐÃ SỬA:
+1. Dòng 465: Kiểm tra client_id đã được set
+   - Nếu không có → return error
+
+2. Dòng 466: Tạo session mới
+   - Đổi tên: session → detection_session (rõ ràng hơn)
+
+3. Dòng 468-492: Tạo và lưu detection
+   - Validate dữ liệu trước khi tạo (class_names là list, không rỗng)
+   - Validate số lượng phần tử khớp nhau
+   - Log từng detection được thêm
+   - Commit tất cả cùng lúc (transaction)
+   - Lấy detection_id với error handling
+
+4. Dòng 493-504: Error handling
+   - Rollback transaction nếu có lỗi
+   - Xóa ảnh đã lưu nếu không lưu được database
+   - Log chi tiết lỗi
+
+5. Dòng 505-507: Finally block
+   - Đảm bảo session luôn được đóng
+   - Log khi đóng session
+   - Set None để tránh reuse
+
+═══════════════════════════════════════════════════════════════
+PHẦN 3: LOGGING VÀ ERROR HANDLING TỔNG QUÁT
+═══════════════════════════════════════════════════════════════
+
+✅ ĐÃ SỬA:
+1. Dòng 370-385: Logging khi nhận detection
+   - Log thời gian, Serial number, Client name, Class names
+
+2. Dòng 439-456: Error handling khi lưu ảnh
+   - Tự động tạo thư mục nếu chưa có
+   - Log lỗi chi tiết
+
+3. Dòng 517-523: Error handling tổng quát
+   - Log và traceback khi có exception
+   - Đảm bảo luôn return response
+
+═══════════════════════════════════════════════════════════════
+CÁCH COPY FILE LÊN MÁY SERVER:
+═══════════════════════════════════════════════════════════════
+
+1. Copy file: out-quan-boxcamai-sv/server.py
+   - Thay thế file cũ trên máy server
+   - Đảm bảo giữ nguyên các file khác
+
+2. Restart server sau khi copy:
+   - Windows: Đóng và mở lại terminal chạy server
+   - Linux: sudo systemctl restart camai-server
+
+3. Kiểm tra log khi client gửi detection:
+   - Tìm dòng "📥 NHẬN DETECTION TỪ CLIENT"
+   - Xem các dòng "✅" hoặc "❌" để biết lỗi ở đâu
+
+═══════════════════════════════════════════════════════════════
+CÁC LỖI CÓ THỂ GẶP VÀ CÁCH XỬ LÝ:
+═══════════════════════════════════════════════════════════════
+
+1. ❌ "KHÔNG TÌM THẤY CLIENT"
+   → Kiểm tra Serial number trên client có khớp với database không
+   → Tạo client mới trên web với Serial number đúng
+
+2. ❌ "Lỗi khi tạo thư mục images"
+   → Kiểm tra quyền thư mục: chmod 755 out-quan-boxcamai-sv/captured_images
+   → Windows: Kiểm tra Properties → Security
+
+3. ❌ "Lỗi khi lưu ảnh"
+   → Kiểm tra quyền ghi vào thư mục captured_images
+   → Kiểm tra dung lượng đĩa còn trống không
+
+4. ❌ "Lỗi khi lưu detection vào database"
+   → Kiểm tra file detections.db có tồn tại không
+   → Kiểm tra file detections.db-journal (xóa nếu server đã dừng)
+   → Kiểm tra quyền ghi vào database
+
+═══════════════════════════════════════════════════════════════

@@ -1,0 +1,97 @@
+═══════════════════════════════════════════════════════════════
+HƯỚNG DẪN CÀI ĐẶT SCRIPT TEST
+═══════════════════════════════════════════════════════════════
+
+📌 ĐÃ CẤU HÌNH:
+───────────────────────────────────────────────────────────────
+✅ Server: boxcamai.cloud:5000
+✅ File: test_detection_from_client.py
+✅ Script cài đặt: install_test_script.bat
+
+═══════════════════════════════════════════════════════════════
+CÁCH CÀI ĐẶT:
+═══════════════════════════════════════════════════════════════
+
+CÁCH 1: DÙNG SCRIPT TỰ ĐỘNG (KHUYẾN NGHỊ)
+───────────────────────────────────────────────────────────────
+
+1. Chạy file: install_test_script.bat
+   - Double-click vào file
+   - Hoặc chạy trong CMD: install_test_script.bat
+
+2. Script sẽ tự động:
+   - Kiểm tra Python
+   - Cài đặt requests, pillow, urllib3
+
+CÁCH 2: CÀI ĐẶT THỦ CÔNG
+───────────────────────────────────────────────────────────────
+
+Mở CMD hoặc PowerShell và chạy:
+
+python -m pip install --upgrade pip
+python -m pip install requests pillow urllib3
+
+═══════════════════════════════════════════════════════════════
+CÁCH SỬ DỤNG:
+═══════════════════════════════════════════════════════════════
+
+BƯỚC 1: SỬA SERIAL NUMBER (NẾU CẦN)
+───────────────────────────────────────────────────────────────
+
+Mở file: test_detection_from_client.py
+
+Tìm dòng 18:
+```python
+SERIAL_NUMBER = "202500000"  # Thay bằng Serial number thật
+```
+
+Sửa thành Serial number của client thật:
+```python
+SERIAL_NUMBER = "202500001"  # Serial number thật
+```
+
+BƯỚC 2: CHẠY SCRIPT
+───────────────────────────────────────────────────────────────
+
+Mở CMD hoặc PowerShell trong thư mục này:
+
+python test_detection_from_client.py
+
+BƯỚC 3: XEM KẾT QUẢ
+───────────────────────────────────────────────────────────────
+
+Script sẽ:
+1. Kiểm tra client có tồn tại trên server không
+2. Gửi detection test lên server
+3. Hiển thị kết quả thành công/thất bại
+
+═══════════════════════════════════════════════════════════════
+LƯU Ý:
+═══════════════════════════════════════════════════════════════
+
+1. Đảm bảo Python đã được cài đặt
+2. Đảm bảo có kết nối internet
+3. Đảm bảo server boxcamai.cloud:5000 đang chạy
+4. Đảm bảo Serial number khớp với client thật
+5. Đảm bảo client đã được tạo trên server (web UI)
+
+═══════════════════════════════════════════════════════════════
+NẾU GẶP LỖI:
+═══════════════════════════════════════════════════════════════
+
+1. Lỗi "Python not found":
+   → Cài đặt Python từ python.org
+   → Đảm bảo chọn "Add Python to PATH" khi cài
+
+2. Lỗi "Module not found":
+   → Chạy lại: pip install requests pillow urllib3
+
+3. Lỗi SSL/Certificate:
+   → Script đã tắt SSL verify (verify=False)
+   → Nếu vẫn lỗi, kiểm tra firewall/network
+
+4. Lỗi "Connection refused":
+   → Kiểm tra server có đang chạy không
+   → Kiểm tra port 5000 có mở không
+
+═══════════════════════════════════════════════════════════════

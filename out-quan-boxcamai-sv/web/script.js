@@ -10,6 +10,39 @@ let lastDetectionCount = 0;
 let lastDetectionIds = new Set();
 let notificationPermissionGranted = false;
 
+// Helper function để fetch JSON an toàn
+async function safeFetchJSON(url, options = {}, showAlert = false) {
+    try {
+        const response = await fetch(url, options);
+        
+        // Kiểm tra Content-Type trước khi parse JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            const errorMsg = `Server trả về HTML thay vì JSON tại ${url}. Status: ${response.status}. Kiểm tra lại endpoint hoặc Cloudflare Tunnel.`;
+            console.error(`API trả về HTML thay vì JSON tại ${url}:`, text.substring(0, 200));
+            
+            if (showAlert) {
+                alert(`Lỗi kết nối: ${errorMsg}\n\nVui lòng kiểm tra:\n- Server đang chạy?\n- Cloudflare Tunnel đang hoạt động?\n- Endpoint có đúng không?`);
+            }
+            throw new Error(errorMsg);
+        }
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        // Chỉ log, không throw lại để tránh crash app
+        if (error.message.includes('HTML') && showAlert) {
+            console.error('Lỗi JSON parsing:', error.message);
+        }
+        throw error;
+    }
+}
+
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', function () {
@@ -106,8 +139,36 @@ function initializeApp() {
         testEmailBtn.addEventListener('click', testEmail);
     }
     
-    // Telegram settings được ẩn, cấu hình trong config.py
-
+    // Event listener cho nút "Lưu Telegram"
+    const saveTelegramBtn = document.getElementById('save-telegram-btn');
+    if (saveTelegramBtn) {
+        saveTelegramBtn.addEventListener('click', saveTelegramSettings);
+    }
+    
+    // Event listener cho nút "Test Telegram"
+    const testTelegramBtn = document.getElementById('test-telegram-btn');
+    if (testTelegramBtn) {
+        testTelegramBtn.addEventListener('click', testTelegram);
+    }
+    
+    // Event listener cho checkbox "Bật cảnh báo Telegram" - tự động lưu khi thay đổi
+    const telegramCheckbox = document.getElementById('telegram-enabled-checkbox');
+    if (telegramCheckbox) {
+        telegramCheckbox.addEventListener('change', () => {
+            // Tự động lưu khi checkbox thay đổi
+            saveTelegramSettings();
+        });
+    }
+    
+    // Event listener cho nút "Đăng xuất"
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+    }
+    
+    // Kiểm tra authentication khi load trang
+    checkAuth();
+    
     // Load initial data - luôn trigger switchTab để đảm bảo load đúng
     // Vì tab detection là tab mặc định, cần trigger switchTab để load data
     // Tăng delay để tránh quá tải khi load trang
@@ -371,8 +432,7 @@ function refreshData() {
 
 async function loadPlaybackClients() {
     try {
-        const response = await fetch('/api/clients');
-        const clients = await response.json();
+        const clients = await safeFetchJSON('/api/clients');
 
         const select = document.getElementById('playback-client-select');
         if (!select) return clients;
@@ -499,22 +559,14 @@ async function checkRecordingStatus(clientId) {
     if (!clientId) return;
     
     try {
-        const res = await fetch(`/api/recordings/status/${clientId}`);
-        if (res.ok) {
-            const data = await res.json();
-            updateRecordingToggleState(data.is_recording);
-            // Cập nhật indicator trên stream
-            updateRecordingIndicator(clientId, data.is_recording);
-            return data.is_recording;
-        } else {
-            // Nếu không lấy được, mặc định là false
-            updateRecordingToggleState(false);
-            updateRecordingIndicator(clientId, false);
-            return false;
-        }
+        const data = await safeFetchJSON(`/api/recordings/status/${clientId}`);
+        updateRecordingToggleState(data.is_recording);
+        // Cập nhật indicator trên stream
+        updateRecordingIndicator(clientId, data.is_recording);
+        return data.is_recording;
     } catch (e) {
         console.error('Error checking recording status:', e);
-        // Nếu lỗi, mặc định là false
+        // Nếu lỗi, mặc định là false (không hiển thị alert để tránh spam)
         updateRecordingToggleState(false);
         updateRecordingIndicator(clientId, false);
         return false;
@@ -526,13 +578,8 @@ async function checkRecordingStatusForStream(clientId) {
     if (!clientId) return;
     
     try {
-        const res = await fetch(`/api/recordings/status/${clientId}`);
-        if (res.ok) {
-            const data = await res.json();
-            updateRecordingIndicator(clientId, data.is_recording);
-        } else {
-            updateRecordingIndicator(clientId, false);
-        }
+        const data = await safeFetchJSON(`/api/recordings/status/${clientId}`);
+        updateRecordingIndicator(clientId, data.is_recording);
     } catch (e) {
         console.error('Error checking recording status for stream:', e);
         updateRecordingIndicator(clientId, false);
@@ -1158,8 +1205,7 @@ function updatePaginationButtons() {
 
 async function loadStats() {
     try {
-        const response = await fetch('/api/detections/stats');
-        const stats = await response.json();
+        const stats = await safeFetchJSON('/api/detections/stats');
 
         const newDetectionCount = stats.total_detections;
         
@@ -1709,8 +1755,7 @@ function stopVideoStreamHealthCheck(clientId) {
 
 async function loadClients() {
     try {
-        const response = await fetch('/api/clients');
-        const clients = await response.json();
+        const clients = await safeFetchJSON('/api/clients');
 
         displayClients(clients);
         
@@ -2759,11 +2804,7 @@ startAutoRefresh();
 
 async function loadAlertSettings() {
     try {
-        const response = await fetch('/api/alert-settings');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const settings = await response.json();
+        const settings = await safeFetchJSON('/api/alert-settings');
         
         const emailInput = document.getElementById('alert-email-input');
         const emailCheckbox = document.getElementById('email-enabled-checkbox');
@@ -2772,6 +2813,12 @@ async function loadAlertSettings() {
         if (emailInput) {
             emailInput.value = settings.alert_email || '';
         }
+        
+        const emailPasswordInput = document.getElementById('alert-email-password-input');
+        if (emailPasswordInput) {
+            emailPasswordInput.value = settings.alert_email_password || '';
+        }
+        
         if (emailCheckbox) {
             emailCheckbox.checked = settings.email_enabled || false;
         }
@@ -2779,18 +2826,56 @@ async function loadAlertSettings() {
         if (emailStatusSpan) {
             if (settings.alert_email) {
                 if (settings.email_enabled) {
-                    emailStatusSpan.textContent = `Đã lưu: ${settings.alert_email} (đang bật)`;
+                    emailStatusSpan.textContent = '✅ Đã lưu (đang bật)';
+                    emailStatusSpan.title = settings.alert_email; // Tooltip hiển thị email khi hover
                     emailStatusSpan.style.color = '#2ecc71';
+                    emailStatusSpan.style.cursor = 'help';
                 } else {
-                    emailStatusSpan.textContent = `Đã lưu: ${settings.alert_email} (đang tắt)`;
+                    emailStatusSpan.textContent = '✅ Đã lưu (đang tắt)';
+                    emailStatusSpan.title = settings.alert_email; // Tooltip hiển thị email khi hover
                     emailStatusSpan.style.color = '#f39c12';
+                    emailStatusSpan.style.cursor = 'help';
                 }
             } else {
                 emailStatusSpan.textContent = '';
+                emailStatusSpan.title = '';
             }
         }
         
-        // Telegram settings được cấu hình trong config.py, không hiển thị trên UI
+        // Load Telegram settings
+        const telegramChatIdInput = document.getElementById('telegram-chat-id-input');
+        const telegramCheckbox = document.getElementById('telegram-enabled-checkbox');
+        const telegramStatusSpan = document.getElementById('telegram-status');
+        
+        if (telegramChatIdInput) {
+            telegramChatIdInput.value = settings.telegram_chat_id || '';
+        }
+        
+        if (telegramCheckbox) {
+            telegramCheckbox.checked = settings.telegram_enabled || false;
+            telegramCheckbox.disabled = false;  // Bỏ disabled để có thể bật/tắt
+        }
+        
+        if (telegramStatusSpan) {
+            if (settings.telegram_chat_id) {
+                if (settings.telegram_enabled) {
+                    telegramStatusSpan.textContent = '✅ Đã lưu (đang bật)';
+                    telegramStatusSpan.title = settings.telegram_chat_id; // Tooltip hiển thị Chat ID khi hover
+                    telegramStatusSpan.style.color = '#2ecc71';
+                    telegramStatusSpan.style.cursor = 'help';
+                } else {
+                    telegramStatusSpan.textContent = '✅ Đã lưu (đang tắt)';
+                    telegramStatusSpan.title = settings.telegram_chat_id; // Tooltip hiển thị Chat ID khi hover
+                    telegramStatusSpan.style.color = '#f39c12';
+                    telegramStatusSpan.style.cursor = 'help';
+                }
+            } else {
+                telegramStatusSpan.textContent = 'Chưa cấu hình';
+                telegramStatusSpan.style.color = '#95a5a6';
+                telegramStatusSpan.title = '';
+            }
+        }
+        
         // Priority classes đã chuyển sang client modal (riêng cho từng client)
     } catch (error) {
         console.error('Error loading alert settings:', error);
@@ -2921,16 +3006,29 @@ async function savePriorityClasses() {
 async function saveAlertSettings() {
     try {
         const emailInput = document.getElementById('alert-email-input');
+        const emailPasswordInput = document.getElementById('alert-email-password-input');
         const emailCheckbox = document.getElementById('email-enabled-checkbox');
         
         if (!emailInput || !emailCheckbox) return;
         
         const email = emailInput.value.trim();
+        const emailPassword = emailPasswordInput ? emailPasswordInput.value.trim() : '';
         const enabled = emailCheckbox.checked;
         
         if (enabled && !email) {
             alert('Vui lòng nhập email trước khi bật cảnh báo!');
             emailCheckbox.checked = false;
+            return;
+        }
+        
+        // Yêu cầu nhập mật khẩu xác nhận để thay đổi cấu hình
+        const confirmPassword = prompt('⚠️ Để thay đổi cấu hình email, vui lòng nhập mật khẩu xác nhận:');
+        if (!confirmPassword) {
+            return; // Người dùng hủy
+        }
+        
+        if (confirmPassword !== 'camai2026') {
+            alert('❌ Mật khẩu không đúng! Không thể thay đổi cấu hình.');
             return;
         }
         
@@ -2941,6 +3039,7 @@ async function saveAlertSettings() {
             },
             body: JSON.stringify({
                 alert_email: email || null,
+                alert_email_password: emailPassword || null,
                 email_enabled: enabled
             })
         });
@@ -2956,12 +3055,13 @@ async function saveAlertSettings() {
             const statusSpan = document.getElementById('email-status');
             if (statusSpan) {
                 if (email) {
-                    statusSpan.textContent = enabled
-                        ? `Đã lưu: ${email} (đang bật)`
-                        : `Đã lưu: ${email} (đang tắt)`;
+                    statusSpan.textContent = enabled ? '✅ Đã lưu (đang bật)' : '✅ Đã lưu (đang tắt)';
+                    statusSpan.title = email; // Tooltip hiển thị email khi hover
                     statusSpan.style.color = enabled ? '#2ecc71' : '#f39c12';
+                    statusSpan.style.cursor = 'help';
                 } else {
                     statusSpan.textContent = '';
+                    statusSpan.title = '';
                 }
             }
         } else {
@@ -3003,11 +3103,18 @@ async function testEmail() {
         });
         
         if (response.ok) {
+            const data = await response.json();
             showToastNotification(`Đã gửi email test đến ${email}.`, 'info');
             alert(`Đã gửi email test đến ${email}. Vui lòng kiểm tra hộp thư (cả Spam).`);
         } else {
-            const error = await response.json();
-            alert(`Lỗi khi gửi email test: ${error.error || 'Không thể gửi email. Kiểm tra cấu hình SMTP.'}`);
+            let errorMsg = 'Không thể gửi email. Kiểm tra cấu hình SMTP.';
+            try {
+                const error = await response.json();
+                errorMsg = error.error || errorMsg;
+            } catch (e) {
+                errorMsg = `Lỗi ${response.status}: ${response.statusText}`;
+            }
+            alert(`Lỗi khi gửi email test: ${errorMsg}`);
         }
         
     } catch (error) {
@@ -3017,20 +3124,92 @@ async function testEmail() {
         const testBtn = document.getElementById('test-email-btn');
         if (testBtn) {
             testBtn.disabled = false;
-            testBtn.textContent = 'Test Email';
+            testBtn.textContent = 'Test';
         }
     }
 }
 
-// Test Telegram - dùng cấu hình từ config.py
-async function testTelegram() {
+// Lưu Telegram settings
+async function saveTelegramSettings() {
     try {
-        const testBtn = document.getElementById('test-telegram-btn');
-        const statusSpan = document.getElementById('telegram-status');
+        const chatIdInput = document.getElementById('telegram-chat-id-input');
+        const telegramCheckbox = document.getElementById('telegram-enabled-checkbox');
         
+        if (!chatIdInput || !telegramCheckbox) return;
+        
+        const chatId = chatIdInput.value.trim();
+        const enabled = telegramCheckbox.checked;
+        
+        if (enabled && !chatId) {
+            alert('Vui lòng nhập Chat ID trước khi bật cảnh báo Telegram!');
+            telegramCheckbox.checked = false;
+            return;
+        }
+        
+        // Yêu cầu nhập mật khẩu xác nhận để thay đổi cấu hình
+        const confirmPassword = prompt('⚠️ Để thay đổi cấu hình Telegram, vui lòng nhập mật khẩu xác nhận:');
+        if (!confirmPassword) {
+            return; // Người dùng hủy
+        }
+        
+        if (confirmPassword !== 'camai2026') {
+            alert('❌ Mật khẩu không đúng! Không thể thay đổi cấu hình.');
+            return;
+        }
+        
+        const response = await safeFetchJSON('/api/alert-settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                telegram_chat_id: chatId || null,
+                telegram_enabled: enabled
+            })
+        }, true);
+        
+        showToastNotification(
+            enabled 
+                ? `Đã bật cảnh báo Telegram đến ${chatId}`
+                : 'Đã tắt cảnh báo Telegram',
+            'success'
+        );
+        
+        const statusSpan = document.getElementById('telegram-status');
+        if (statusSpan) {
+            if (chatId) {
+                if (enabled) {
+                    statusSpan.textContent = '✅ Đã lưu (đang bật)';
+                    statusSpan.title = chatId; // Tooltip hiển thị Chat ID khi hover
+                    statusSpan.style.color = '#2ecc71';
+                    statusSpan.style.cursor = 'help';
+                } else {
+                    statusSpan.textContent = '✅ Đã lưu (đang tắt)';
+                    statusSpan.title = chatId; // Tooltip hiển thị Chat ID khi hover
+                    statusSpan.style.color = '#f39c12';
+                    statusSpan.style.cursor = 'help';
+                }
+            } else {
+                statusSpan.textContent = '';
+                statusSpan.title = '';
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error saving Telegram settings:', error);
+        alert('Lỗi khi lưu cấu hình Telegram');
+    }
+}
+
+// Test Telegram - dùng cấu hình từ database
+async function testTelegram() {
+    const testBtn = document.getElementById('test-telegram-btn');
+    const statusSpan = document.getElementById('telegram-status');
+    
+    try {
         if (testBtn) {
             testBtn.disabled = true;
-            testBtn.innerHTML = '<span>📲</span><span>Đang gửi...</span>';
+            testBtn.textContent = 'Đang gửi...';
         }
         
         if (statusSpan) {
@@ -3038,48 +3217,70 @@ async function testTelegram() {
             statusSpan.style.color = '#3498db';
         }
         
-        const response = await fetch('/api/alert-settings/test-telegram', {
+        const data = await safeFetchJSON('/api/alert-settings/test-telegram', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({})  // Không cần gửi chat_id, server sẽ dùng từ config
-        });
+            body: JSON.stringify({})  // Server sẽ dùng từ database
+        }, true);  // showAlert = true để hiển thị alert nếu có lỗi
         
-        if (response.ok) {
-            const data = await response.json();
-            showToastNotification('Đã gửi tin nhắn test đến Telegram! Vui lòng kiểm tra Telegram của bạn.', 'info');
-            
-            if (statusSpan) {
-                statusSpan.textContent = '✅ Đã gửi tin nhắn test thành công';
-                statusSpan.style.color = '#27ae60';
-            }
-        } else {
-            const error = await response.json();
-            const errorMsg = error.error || 'Không thể gửi tin nhắn. Kiểm tra Bot Token và Chat ID trong config.py.';
-            alert(`Lỗi khi gửi Telegram test: ${errorMsg}`);
-            
-            if (statusSpan) {
-                statusSpan.textContent = '❌ Lỗi: ' + errorMsg.substring(0, 50) + '...';
-                statusSpan.style.color = '#e74c3c';
-            }
+        showToastNotification('Đã gửi tin nhắn test đến Telegram! Vui lòng kiểm tra Telegram của bạn.', 'info');
+        
+        if (statusSpan) {
+            statusSpan.textContent = '✅ Đã gửi tin nhắn test thành công';
+            statusSpan.style.color = '#27ae60';
         }
         
     } catch (error) {
         console.error('Error testing Telegram:', error);
-        alert(`Lỗi: ${error.message || 'Không thể kết nối đến server'}`);
+        const errorMsg = error.message || 'Không thể gửi tin nhắn. Kiểm tra Bot Token và Chat ID.';
         
-        const statusSpan = document.getElementById('telegram-status');
         if (statusSpan) {
-            statusSpan.textContent = '❌ Lỗi kết nối';
+            statusSpan.textContent = '❌ Lỗi: ' + errorMsg.substring(0, 50) + (errorMsg.length > 50 ? '...' : '');
             statusSpan.style.color = '#e74c3c';
         }
     } finally {
-        const testBtn = document.getElementById('test-telegram-btn');
         if (testBtn) {
             testBtn.disabled = false;
-            testBtn.innerHTML = '<span>📲</span><span>Test Telegram</span>';
+            testBtn.textContent = 'Test';
         }
+    }
+}
+
+// ==================== AUTHENTICATION ====================
+
+async function checkAuth() {
+    try {
+        // Kiểm tra xem có đăng nhập không bằng cách gọi API
+        const response = await fetch('/api/alert-settings');
+        if (response.status === 401) {
+            // Chưa đăng nhập, chuyển đến trang login
+            window.location.href = '/login';
+        }
+    } catch (error) {
+        console.error('Error checking auth:', error);
+    }
+}
+
+async function logout() {
+    try {
+        const response = await fetch('/api/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            window.location.href = '/login';
+        } else {
+            alert('Lỗi khi đăng xuất');
+        }
+    } catch (error) {
+        console.error('Error logging out:', error);
+        // Vẫn chuyển đến trang login nếu có lỗi
+        window.location.href = '/login';
     }
 }
 
@@ -3123,6 +3324,49 @@ function playAlertSound() {
         console.error('Error playing alert sound:', error);
     }
 }
+
+// ==================== AUTHENTICATION ====================
+
+async function checkAuth() {
+    try {
+        // Kiểm tra xem có đăng nhập không bằng cách gọi API
+        const response = await fetch('/api/alert-settings');
+        if (response.status === 401) {
+            // Chưa đăng nhập, chuyển đến trang login
+            window.location.href = '/login';
+        }
+    } catch (error) {
+        console.error('Error checking auth:', error);
+        // Nếu có lỗi, vẫn cho phép tiếp tục (có thể là lỗi mạng)
+    }
+}
+
+async function logout() {
+    if (!confirm('Bạn có chắc muốn đăng xuất?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            window.location.href = '/login';
+        } else {
+            alert('Lỗi khi đăng xuất');
+        }
+    } catch (error) {
+        console.error('Error logging out:', error);
+        // Vẫn chuyển đến trang login nếu có lỗi
+        window.location.href = '/login';
+    }
+}
+
+// ==================== UTILITY FUNCTIONS ====================
 
 // Show toast notification
 function showToastNotification(message, type = 'info', detection = null) {

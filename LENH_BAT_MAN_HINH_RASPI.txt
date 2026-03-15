@@ -1,0 +1,152 @@
+═══════════════════════════════════════════════════════════════
+LỆNH BẬT LẠI MÀN HÌNH RASPBERRY PI
+═══════════════════════════════════════════════════════════════
+
+📌 CÁCH 1: BẬT LẠI MÀN HÌNH BỊ TẮT (BLANK SCREEN)
+───────────────────────────────────────────────────────────────
+
+⚠️  NẾU LỖI "Command not registered" với vcgencmd:
+───────────────────────────────────────────────────────────────
+
+1. Dùng tvservice (KHUYẾN NGHỊ):
+   sudo tvservice -p
+   sudo chvt 9
+   sudo chvt 7
+   
+   Hoặc một lệnh:
+   sudo tvservice -p && sudo chvt 9 && sudo chvt 7
+
+2. Kiểm tra trạng thái:
+   tvservice -s
+
+───────────────────────────────────────────────────────────────
+
+✅ NẾU VCGENCMD HOẠT ĐỘNG:
+───────────────────────────────────────────────────────────────
+
+1. Bật lại màn hình HDMI:
+   sudo vcgencmd display_power 1
+
+2. Kiểm tra trạng thái màn hình:
+   vcgencmd display_power
+
+═══════════════════════════════════════════════════════════════
+📌 CÁCH 2: KHỞI ĐỘNG LẠI RASPBERRY PI
+───────────────────────────────────────────────────────────────
+
+1. Khởi động lại toàn bộ hệ thống:
+   sudo reboot
+
+2. Hoặc tắt và bật lại:
+   sudo shutdown -r now
+
+3. Khởi động lại ngay lập tức:
+   sudo reboot now
+
+═══════════════════════════════════════════════════════════════
+📌 CÁCH 3: BẬT LẠI SERVICE CAMAI
+───────────────────────────────────────────────────────────────
+
+1. Khởi động lại service:
+   sudo systemctl restart boxcamai.service
+
+2. Kiểm tra trạng thái:
+   sudo systemctl status boxcamai.service
+
+3. Xem log:
+   sudo journalctl -u boxcamai.service -f
+
+═══════════════════════════════════════════════════════════════
+📌 CÁCH 4: BẬT LẠI MÀN HÌNH QUA SSH
+───────────────────────────────────────────────────────────────
+
+Nếu bạn đang SSH vào Raspberry Pi và màn hình bị tắt:
+
+1. Bật lại display:
+   export DISPLAY=:0
+   xset dpms force on
+
+2. Hoặc:
+   sudo systemctl restart lightdm
+
+═══════════════════════════════════════════════════════════════
+📌 CÁCH 5: KIỂM TRA VÀ SỬA LỖI MÀN HÌNH
+───────────────────────────────────────────────────────────────
+
+1. Kiểm tra HDMI có kết nối không:
+   tvservice -s
+
+2. Kiểm tra cấu hình display:
+   cat /boot/config.txt | grep hdmi
+
+3. Bật lại framebuffer:
+   sudo fbset -depth 8
+   sudo fbset -depth 16
+
+═══════════════════════════════════════════════════════════════
+📌 LỆNH BẬT LẠI MÀN HÌNH BẰNG LIGHTDM (NẾU ĐÃ TẮT BẰNG LIGHTDM):
+───────────────────────────────────────────────────────────────
+
+⚠️  NẾU LIGHTDM BỊ LỖI (FAILED):
+───────────────────────────────────────────────────────────────
+
+1. Xem log chi tiết lỗi:
+   sudo journalctl -u lightdm.service -n 50
+   hoặc
+   sudo journalctl -u lightdm.service --since "10 minutes ago"
+
+2. Kiểm tra xem có X server nào đang chạy không:
+   ps aux | grep X
+   # Nếu có X server đang chạy, kill nó trước:
+   sudo pkill X
+
+3. Reset lightdm (nếu bị lỗi):
+   sudo systemctl stop lightdm
+   sudo pkill -9 lightdm
+   sudo systemctl reset-failed lightdm
+   sudo systemctl start lightdm
+
+4. Kiểm tra cấu hình lightdm:
+   cat /etc/lightdm/lightdm.conf | grep -v "^#" | grep -v "^$"
+
+5. Nếu vẫn lỗi, thử bật lại bằng cách khác:
+   sudo vcgencmd display_power 1
+   sudo systemctl restart lightdm
+
+───────────────────────────────────────────────────────────────
+
+✅ NẾU LIGHTDM HOẠT ĐỘNG BÌNH THƯỜNG:
+───────────────────────────────────────────────────────────────
+
+1. Bật lại display manager (lightdm):
+   sudo systemctl start lightdm
+
+2. Hoặc restart lightdm:
+   sudo systemctl restart lightdm
+
+3. Kiểm tra trạng thái lightdm:
+   sudo systemctl status lightdm
+
+4. Bật lightdm và tự động chạy khi boot:
+   sudo systemctl enable lightdm
+   sudo systemctl start lightdm
+
+═══════════════════════════════════════════════════════════════
+📌 LỆNH NHANH NHẤT (KHUYẾN NGHỊ):
+───────────────────────────────────────────────────────────────
+
+Nếu đã tắt bằng lightdm:
+   sudo systemctl start lightdm
+   hoặc
+   sudo systemctl restart lightdm
+
+Nếu màn hình bị tắt (blank):
+   sudo vcgencmd display_power 1
+
+Nếu muốn khởi động lại Pi:
+   sudo reboot
+
+Nếu muốn restart service:
+   sudo systemctl restart boxcamai.service
+
+═══════════════════════════════════════════════════════════════

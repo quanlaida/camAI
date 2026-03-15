@@ -1,0 +1,231 @@
+═══════════════════════════════════════════════════════════════════════════
+    🔴 KHÔI PHỤC FILE ĐÃ XÓA - HƯỚNG DẪN KHẨN CẤP
+═══════════════════════════════════════════════════════════════════════════
+
+⚠️ QUAN TRỌNG: CÀNG SỚM KHÔI PHỤC CÀNG TỐT!
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 1: DỪNG NGAY MỌI HOẠT ĐỘNG GHI FILE
+═══════════════════════════════════════════════════════════════════════════
+
+❌ KHÔNG LÀM:
+   • KHÔNG chạy server (python server.py)
+   • KHÔNG tạo file mới
+   • KHÔNG cài đặt phần mềm vào ổ C:
+   • KHÔNG download file vào ổ C:
+   • KHÔNG copy/paste file
+
+✅ LÀM NGAY:
+   • Dừng server nếu đang chạy (Ctrl+C)
+   • Đóng các ứng dụng đang chạy
+   • Tắt các chương trình backup tự động (OneDrive, Google Drive sync)
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 2: TẢI PHẦN MỀM KHÔI PHỤC NGAY
+═══════════════════════════════════════════════════════════════════════════
+
+📥 CÁC PHẦN MỀM KHÔI PHỤC FILE (CHỌN 1):
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. RECUVA (KHUYẾN NGHỊ - DỄ DÙNG NHẤT)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Link: https://www.ccleaner.com/recuva/download
+   
+   ✅ Ưu điểm:
+   • Miễn phí hoàn toàn
+   • Giao diện đơn giản, dễ dùng
+   • Quét nhanh
+   • Hỗ trợ nhiều định dạng file
+   
+   ⚠️ QUAN TRỌNG:
+   • Tải về ổ D: hoặc USB (KHÔNG tải vào ổ C:)
+   • Cài đặt vào ổ D: hoặc USB (KHÔNG cài vào ổ C:)
+   • Mục đích: Tránh ghi đè dữ liệu đã xóa trên ổ C:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. PHOTO REC (MẠNH MẼ HƠN - MIỄN PHÍ)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Link: https://www.cgsecurity.org/wiki/PhotoRec
+   
+   ✅ Ưu điểm:
+   • Miễn phí hoàn toàn
+   • Mạnh mẽ hơn Recuva
+   • Khôi phục nhiều định dạng hơn
+   • Hoạt động tốt với cả HDD và SSD
+   
+   ⚠️ Nhược điểm:
+   • Giao diện dòng lệnh (khó dùng hơn)
+   • Có GUI: TestDisk (nhưng vẫn phức tạp hơn Recuva)
+   
+   💡 Dùng khi: Recuva không khôi phục được hoặc cần khôi phục nhiều định dạng
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. DISK DIGGER (TỐT CHO ẢNH)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Link: https://diskdigger.org/
+   
+   ✅ Ưu điểm:
+   • Miễn phí (có bản trả phí với tính năng nâng cao)
+   • Tốt cho khôi phục ảnh
+   • Giao diện đơn giản
+   • Quét nhanh
+   
+   💡 Dùng khi: Chủ yếu cần khôi phục ảnh
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. R-STUDIO (CHUYÊN NGHIỆP - TRẢ PHÍ)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Link: https://www.r-studio.com/
+   
+   ✅ Ưu điểm:
+   • Mạnh mẽ nhất
+   • Khôi phục nhiều định dạng
+   • Có bản dùng thử miễn phí
+   • Hỗ trợ RAID, NTFS, FAT32, exFAT
+   
+   ⚠️ Nhược điểm:
+   • Trả phí (có bản dùng thử)
+   • Phức tạp hơn các phần mềm khác
+   
+   💡 Dùng khi: Cần khôi phục chuyên nghiệp, có ngân sách
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. WONDERSHARE RECOVERIT (DỄ DÙNG - TRẢ PHÍ)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Link: https://recoverit.wondershare.com/
+   
+   ✅ Ưu điểm:
+   • Giao diện đẹp, dễ dùng
+   • Khôi phục tốt
+   • Có bản dùng thử miễn phí
+   
+   ⚠️ Nhược điểm:
+   • Trả phí (có bản dùng thử)
+   
+   💡 Dùng khi: Muốn giao diện đẹp, có ngân sách
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 KHUYẾN NGHỊ CHO BẠN:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   
+   Bước 1: Thử RECUVA trước (miễn phí, dễ dùng)
+   Bước 2: Nếu không được, thử PHOTO REC (miễn phí, mạnh hơn)
+   Bước 3: Nếu vẫn không được, thử DISK DIGGER (tốt cho ảnh)
+   Bước 4: Cuối cùng mới dùng R-STUDIO hoặc WONDERSHARE (trả phí)
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 3: CHẠY RECUVA VÀ KHÔI PHỤC
+═══════════════════════════════════════════════════════════════════════════
+
+1. Mở Recuva
+
+2. Chọn loại file:
+   ✅ Pictures (cho ảnh trong captured_images)
+   ✅ Video (cho video trong recordings)
+
+3. Chọn vị trí quét:
+   📁 E:\CAM_AI_server\camAI\out-quan-boxcamai-sv\captured_images
+   📁 E:\CAM_AI_server\camAI\out-quan-boxcamai-sv\recordings
+
+4. Click "Scan" và đợi quét
+   ⏱️ Có thể mất 10-30 phút tùy dung lượng
+
+5. Sau khi quét xong:
+   ✅ Đánh dấu chọn các file cần khôi phục
+   ✅ Click "Recover" (hoặc "Khôi phục")
+
+6. Chọn thư mục đích để lưu:
+   ⚠️ QUAN TRỌNG: Chọn ổ D: hoặc USB (KHÔNG chọn ổ C:)
+   Ví dụ: D:\Recovered_Files\
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 4: SAU KHI KHÔI PHỤC XONG
+═══════════════════════════════════════════════════════════════════════════
+
+1. Kiểm tra file đã khôi phục:
+   • Mở thư mục D:\Recovered_Files\
+   • Kiểm tra xem file có đầy đủ không
+
+2. Copy file về đúng vị trí:
+   • captured_images → E:\CAM_AI_server\camAI\out-quan-boxcamai-sv\captured_images
+   • recordings → E:\CAM_AI_server\camAI\out-quan-boxcamai-sv\recordings
+
+3. Kiểm tra lại:
+   • Chạy server: python server.py
+   • Vào web xem detections có hiển thị lại không
+
+═══════════════════════════════════════════════════════════════════════════
+PHƯƠNG ÁN KHÁC (NẾU RECUVA KHÔNG THÀNH CÔNG)
+═══════════════════════════════════════════════════════════════════════════
+
+📋 PHOTO REC (Miễn phí, mạnh hơn):
+   Link: https://www.cgsecurity.org/wiki/PhotoRec
+   
+   • Mạnh mẽ hơn Recuva
+   • Khôi phục nhiều định dạng hơn
+   • Giao diện dòng lệnh (có GUI: TestDisk)
+
+📋 DISK DIGGER (Có bản miễn phí):
+   Link: https://diskdigger.org/
+   
+   • Hỗ trợ khôi phục ảnh tốt
+   • Giao diện đơn giản
+
+📋 R-STUDIO (Trả phí, chuyên nghiệp nhất):
+   Link: https://www.r-studio.com/
+   
+   • Mạnh mẽ nhất
+   • Khôi phục nhiều định dạng
+   • Có bản dùng thử
+
+═══════════════════════════════════════════════════════════════════════════
+KIỂM TRA BACKUP TỰ ĐỘNG
+═══════════════════════════════════════════════════════════════════════════
+
+💾 KIỂM TRA CÁC NGUỒN BACKUP:
+
+1. Windows File History:
+   • Mở Settings → Update & Security → Backup
+   • Xem có backup tự động không
+
+2. OneDrive:
+   • Mở OneDrive folder
+   • Kiểm tra có sync thư mục captured_images không
+
+3. Google Drive / Dropbox:
+   • Kiểm tra cloud backup nếu có
+
+4. Backup từ máy khác:
+   • Nếu có máy khác đồng bộ, kiểm tra máy đó
+
+═══════════════════════════════════════════════════════════════════════════
+TỶ LỆ THÀNH CÔNG
+═══════════════════════════════════════════════════════════════════════════
+
+✅ TỶ LỆ THÀNH CÔNG CAO NẾU:
+   • Xóa chưa lâu (< 1 giờ)
+   • Chưa ghi file mới vào ổ cứng
+   • Ổ cứng còn nhiều dung lượng trống
+   • Dùng HDD (khôi phục dễ hơn SSD)
+
+⚠️ TỶ LỆ THẤP NẾU:
+   • Xóa đã lâu (> 24 giờ)
+   • Đã ghi nhiều file mới vào ổ cứng
+   • Ổ cứng gần đầy
+   • Dùng SSD (khó khôi phục hơn)
+
+═══════════════════════════════════════════════════════════════════════════
+LƯU Ý QUAN TRỌNG
+═══════════════════════════════════════════════════════════════════════════
+
+⚠️ KHÔNG BAO GIỜ:
+   • Ghi file mới vào ổ cứng trước khi khôi phục
+   • Chạy server trước khi khôi phục
+   • Defragment ổ cứng (sẽ xóa vĩnh viễn)
+
+✅ LUÔN LUÔN:
+   • Khôi phục vào ổ cứng KHÁC (ổ D:, USB, etc.)
+   • Kiểm tra file khôi phục trước khi copy về
+   • Backup file quan trọng sau khi khôi phục
+
+═══════════════════════════════════════════════════════════════════════════

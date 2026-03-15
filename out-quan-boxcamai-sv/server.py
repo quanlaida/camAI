@@ -1,5 +1,5 @@
 import config as config
-from database_setup import Detection, Client, AlertSettings, init_database, get_session
+from database_setup import Detection, Client, AlertSettings, User, init_database, get_session
 from sqlalchemy.orm import sessionmaker, joinedload
 from sqlalchemy import func
 from datetime import datetime
@@ -9,7 +9,9 @@ from pathlib import Path
 import re
 import subprocess
 from flask_cors import CORS
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, send_file, render_template, session, redirect, url_for
+from functools import wraps
+import hashlib
 from werkzeug.exceptions import ClientDisconnected
 import sys
 import smtplib
@@ -94,6 +96,8 @@ else:
 
 
 app = Flask(__name__, static_folder='web', template_folder='templates')
+app.secret_key = 'camai-secret-key-2026-change-in-production'  # Secret key cho session
+
 # CORS configuration - cho phép tất cả origins để hỗ trợ domain
 CORS(app, resources={
     r"/api/*": {"origins": "*"},
@@ -254,7 +258,76 @@ def _invalidate_client_cache(serial_number=None, client_name=None, client_id=Non
                 del client_cache[key]
 
 
+# Decorator để kiểm tra đăng nhập
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session or not session['logged_in']:
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'Unauthorized. Please login first.'}), 401
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login')
+def login():
+    """Trang đăng nhập"""
+    if 'logged_in' in session and session['logged_in']:
+        return redirect(url_for('index'))
+    return render_template('login.html')
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    """API đăng nhập - cần username và password"""
+    try:
+        data = request.json
+        username = data.get('username', '').strip()
+        password = data.get('password', '').strip()
+        
+        if not username or not password:
+            return jsonify({'error': 'Vui lòng nhập đầy đủ thông tin'}), 400
+        
+        # Hash password để so sánh
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        # Kiểm tra trong database
+        db_session = Session()
+        try:
+            user = db_session.query(User).filter(User.username == username).first()
+            
+            if not user:
+                print(f"⚠️ Login failed: User '{username}' not found")
+                return jsonify({'error': 'Tên đăng nhập hoặc mật khẩu không đúng'}), 401
+            
+            if user.password_hash != password_hash:
+                print(f"⚠️ Login failed: Password hash mismatch for user '{username}'")
+                print(f"   Expected: {user.password_hash[:20]}...")
+                print(f"   Got:      {password_hash[:20]}...")
+                return jsonify({'error': 'Tên đăng nhập hoặc mật khẩu không đúng'}), 401
+            
+            # Đăng nhập thành công
+            session['logged_in'] = True
+            session['username'] = username
+            print(f"✅ Login successful: {username}")
+            return jsonify({'message': 'Đăng nhập thành công'}), 200
+            
+        finally:
+            db_session.close()
+            
+    except Exception as e:
+        print(f"❌ Login error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Lỗi: {str(e)}'}), 500
+
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
+    """API đăng xuất"""
+    session.clear()
+    return jsonify({'message': 'Đã đăng xuất'}), 200
+
 @app.route('/')
+@login_required
 def index():
     """Serve the main web UI"""
     from flask import make_response
@@ -294,12 +367,22 @@ def serve_js():
 @app.route('/api/detections', methods=['POST'])
 def receive_detection():
     """Receive detection data from the AI client"""
+    print(f"\n{'='*60}")
+    print(f"📥 NHẬN DETECTION TỪ CLIENT - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*60}")
+    
     try:
         # Get JSON data from form
         json_data = request.form.get('json_data')
         if not json_data:
+            print("❌ Không có JSON data trong request")
             return jsonify({'error': 'No JSON data provided'}), 400
+        
         data = json.loads(json_data)
+        print(f"✅ Đã nhận JSON data")
+        print(f"   Serial number: {data.get('serial_number', 'N/A')}")
+        print(f"   Client name: {data.get('client_name', 'N/A')}")
+        print(f"   Class names: {data.get('class_name', [])}")
 
         # Get image file
         if 'image' not in request.files:
@@ -317,41 +400,77 @@ def receive_detection():
         serial_number = data.get('serial_number')
         client_name = data.get('client_name')  # Backward compatibility
         client = None
-        session = None
+        client_session = None
 
-        if client_id or serial_number or client_name:
-            session = Session()
-            try:
-                if client_id:
-                    client = session.query(Client).filter(
-                        Client.id == client_id).first()
-                elif serial_number:
-                    # Tìm bằng Serial number (mới)
-                    client = session.query(Client).filter(
-                        Client.serial_number == serial_number).first()
-                elif client_name:
-                    # Tìm bằng name (backward compatibility)
-                    client = session.query(Client).filter(
-                        Client.name == client_name).first()
+        if not (client_id or serial_number or client_name):
+            print("❌ Không có client_id, serial_number hoặc client_name trong request")
+            return jsonify({'error': 'client_id, serial_number or client_name is required'}), 400
 
-                # KHÔNG tự động tạo client nữa - client phải được tạo trên server với Serial number
-                if client:
-                    client_id = client.id
-                    # Cập nhật updated_at để track online status khi có detection
+        # Tìm client trong database
+        client_session = Session()
+        try:
+            if client_id:
+                client = client_session.query(Client).filter(
+                    Client.id == client_id).first()
+            elif serial_number:
+                # Tìm bằng Serial number (mới)
+                client = client_session.query(Client).filter(
+                    Client.serial_number == serial_number).first()
+            elif client_name:
+                # Tìm bằng name (backward compatibility)
+                client = client_session.query(Client).filter(
+                    Client.name == client_name).first()
+
+            # KHÔNG tự động tạo client nữa - client phải được tạo trên server với Serial number
+            if client:
+                client_id = client.id
+                print(f"✅ Tìm thấy client: ID={client_id}, Serial={client.serial_number}")
+                # Cập nhật updated_at để track online status khi có detection
+                try:
                     client.updated_at = datetime.now()
-                    session.commit()
-                else:
-                    # Client không tồn tại - không thể lưu detection
-                    session.close()
-                    return jsonify({'error': 'Client not found. Please create client first with correct Serial number.'}), 404
-            finally:
-                session.close()
-                session = None
+                    client_session.commit()
+                    print(f"✅ Đã cập nhật updated_at cho client {client_id}")
+                except Exception as e:
+                    print(f"⚠️ Lỗi khi cập nhật updated_at (không ảnh hưởng lưu detection): {e}")
+                    client_session.rollback()
+                    # Tiếp tục dù có lỗi update updated_at
+            else:
+                # Client không tồn tại - không thể lưu detection
+                print(f"❌ KHÔNG TÌM THẤY CLIENT!")
+                print(f"   Serial number: {serial_number}")
+                print(f"   Client name: {client_name}")
+                print(f"   Client ID: {data.get('client_id')}")
+                return jsonify({'error': 'Client not found. Please create client first with correct Serial number.'}), 404
+        except Exception as e:
+            print(f"❌ Lỗi khi query client từ database: {e}")
+            import traceback
+            traceback.print_exc()
+            if client_session:
+                client_session.rollback()
+            return jsonify({'error': f'Database error when finding client: {str(e)}'}), 500
+        finally:
+            if client_session:
+                client_session.close()
+                client_session = None
 
         # Save image to server directory
+        # Đảm bảo thư mục tồn tại
+        try:
+            os.makedirs(config.SERVER_IMAGES_DIR, exist_ok=True)
+        except Exception as e:
+            print(f"❌ Lỗi khi tạo thư mục images: {e}")
+            return jsonify({'error': f'Cannot create images directory: {str(e)}'}), 500
+        
         image_filename = data.get('image_path', image_file.filename)
         image_path = os.path.join(config.SERVER_IMAGES_DIR, image_filename)
-        image_file.save(image_path)
+        
+        try:
+            image_file.save(image_path)
+        except Exception as e:
+            print(f"❌ Lỗi khi lưu ảnh: {e}")
+            print(f"   Thư mục: {config.SERVER_IMAGES_DIR}")
+            print(f"   File: {image_filename}")
+            return jsonify({'error': f'Cannot save image: {str(e)}'}), 500
 
         class_names = data["class_name"]
         confidences = data["confidence"]
@@ -361,48 +480,108 @@ def receive_detection():
         hs = data["bbox_height"]
 
         # Create detection record
-        session = Session()
+        # Đảm bảo client_id đã được set
+        if not client_id:
+            print("❌ client_id không được set sau khi tìm client")
+            return jsonify({'error': 'Internal error: client_id not set'}), 500
+        
+        detection_session = Session()
         detection_id = None
         try:
+            # Validate dữ liệu trước khi tạo detection
+            if not isinstance(class_names, list) or len(class_names) == 0:
+                raise ValueError("class_names phải là list và không rỗng")
+            if len(class_names) != len(confidences) or len(class_names) != len(xs):
+                raise ValueError("Số lượng class_names, confidences, và bbox không khớp")
+            
+            print(f"📝 Bắt đầu lưu {len(class_names)} detection(s) vào database...")
+            
             for i in range(len(class_names)):
-                detection = Detection(
-                    timestamp=datetime.fromisoformat(data['timestamp']),
-                    class_name=class_names[i],
-                    confidence=float(confidences[i]),
-                    image_path=image_filename,
-                    bbox_x=int(xs[i]),
-                    bbox_y=int(ys[i]),
-                    bbox_width=int(ws[i]),
-                    bbox_height=int(hs[i]),
-                    metadata_json=json.dumps(data.get('metadata', {})),
-                    client_id=client_id
-                )
+                # Validate từng giá trị
+                try:
+                    detection = Detection(
+                        timestamp=datetime.fromisoformat(data['timestamp']),
+                        class_name=str(class_names[i]),
+                        confidence=float(confidences[i]),
+                        image_path=str(image_filename),
+                        bbox_x=int(xs[i]),
+                        bbox_y=int(ys[i]),
+                        bbox_width=int(ws[i]),
+                        bbox_height=int(hs[i]),
+                        metadata_json=json.dumps(data.get('metadata', {})),
+                        client_id=client_id
+                    )
+                    detection_session.add(detection)
+                    print(f"   ✅ Đã thêm detection {i+1}/{len(class_names)}: {class_names[i]} (confidence: {confidences[i]:.2f})")
+                except Exception as e:
+                    print(f"   ❌ Lỗi khi tạo detection {i+1}: {e}")
+                    raise
 
-                session.add(detection)
-
-            session.commit()
+            # Commit tất cả detections cùng lúc
+            detection_session.commit()
+            print(f"✅ Đã commit {len(class_names)} detection(s) vào database cho client {client_id}")
             
             # Lấy detection ID để gửi email (lấy detection đầu tiên trong batch)
             if len(class_names) > 0:
-                detection_id = session.query(Detection).filter(
-                    Detection.client_id == client_id
-                ).order_by(Detection.timestamp.desc()).first().id
+                try:
+                    latest_detection = detection_session.query(Detection).filter(
+                        Detection.client_id == client_id
+                    ).order_by(Detection.timestamp.desc()).first()
+                    if latest_detection:
+                        detection_id = latest_detection.id
+                        print(f"✅ Detection ID để gửi alert: {detection_id}")
+                except Exception as e:
+                    print(f"⚠️ Không thể lấy detection ID (không ảnh hưởng lưu detection): {e}")
+                    detection_id = None
+                    
+        except Exception as e:
+            print(f"❌ Lỗi khi lưu detection vào database: {e}")
+            import traceback
+            traceback.print_exc()
+            if detection_session:
+                try:
+                    detection_session.rollback()
+                    print("✅ Đã rollback transaction")
+                except Exception as rollback_error:
+                    print(f"⚠️ Lỗi khi rollback: {rollback_error}")
+            
+            # Xóa ảnh đã lưu nếu không lưu được database
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+                    print(f"✅ Đã xóa ảnh {image_filename} do lỗi database")
+            except Exception as cleanup_error:
+                print(f"⚠️ Không thể xóa ảnh: {cleanup_error}")
+            
+            return jsonify({'error': f'Cannot save detection to database: {str(e)}'}), 500
         finally:
-            session.close()
-            session = None
+            if detection_session:
+                try:
+                    detection_session.close()
+                    print("✅ Đã đóng detection session")
+                except Exception as close_error:
+                    print(f"⚠️ Lỗi khi đóng session: {close_error}")
+                detection_session = None
 
         # Gửi email và Telegram cảnh báo nếu có cấu hình
         if detection_id and client_id:
             send_alert_email_async(detection_id, client_id)
             send_alert_telegram_async(detection_id, client_id)
 
+        print(f"✅ HOÀN TẤT: Detection đã được lưu thành công!")
+        print(f"{'='*60}\n")
         return jsonify({'message': 'Detection saved successfully'}), 201
 
     except Exception as e:
+        print(f"❌ LỖI TỔNG QUÁT KHI NHẬN DETECTION: {e}")
+        import traceback
+        traceback.print_exc()
+        print(f"{'='*60}\n")
         return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/detections', methods=['GET'])
+@login_required
 def get_detections():
     """Get all detections with optional filtering"""
     session = None
@@ -488,20 +667,30 @@ def send_alert_telegram(detection_id, client_id):
     """Gửi Telegram cảnh báo khi có detection trong ROI"""
     session = None
     try:
-        # Kiểm tra bot token và chat ID từ config (không dùng database)
-        if not config.TELEGRAM_BOT_TOKEN:
+        session = Session()
+        
+        # Lấy Telegram settings từ database, fallback về config
+        alert_settings = session.query(AlertSettings).first()
+        if alert_settings:
+            bot_token = alert_settings.telegram_bot_token if alert_settings.telegram_bot_token else config.TELEGRAM_BOT_TOKEN
+            chat_id = alert_settings.telegram_chat_id if alert_settings.telegram_chat_id else config.TELEGRAM_CHAT_ID
+            telegram_enabled = alert_settings.telegram_enabled if alert_settings.telegram_enabled is not None else config.TELEGRAM_ENABLED
+        else:
+            bot_token = config.TELEGRAM_BOT_TOKEN
+            chat_id = config.TELEGRAM_CHAT_ID
+            telegram_enabled = config.TELEGRAM_ENABLED
+        
+        # Kiểm tra bot token và chat ID
+        if not bot_token:
             print("⚠️ TELEGRAM_BOT_TOKEN chưa được cấu hình")
             return
         
-        if not config.TELEGRAM_ENABLED:
+        if not telegram_enabled:
             return  # Telegram bị tắt
         
-        chat_id = config.TELEGRAM_CHAT_ID
         if not chat_id:
             print("⚠️ TELEGRAM_CHAT_ID chưa được cấu hình")
             return
-        
-        session = Session()
         
         # Lấy detection info
         detection = session.query(Detection).filter(Detection.id == detection_id).first()
@@ -767,8 +956,10 @@ def send_alert_email(detection_id, client_id):
         # Cấu hình SMTP Gmail
         smtp_server = "smtp.gmail.com"
         smtp_port = 587
-        smtp_user = config.ALERT_EMAIL_SENDER  # Email gửi đi (từ config)
-        smtp_password = config.ALERT_EMAIL_PASSWORD  # App password từ config
+        # Email: ưu tiên database, fallback config
+        smtp_user = alert_settings.alert_email if alert_settings.alert_email else config.ALERT_EMAIL_SENDER
+        # Password: LUÔN dùng từ config/.env (cố định ở server), không dùng từ database
+        smtp_password = config.ALERT_EMAIL_PASSWORD
         
         if not smtp_user or not smtp_password:
             print("⚠️ Email alert không được cấu hình (thiếu SMTP credentials)")
@@ -800,7 +991,7 @@ def send_alert_email(detection_id, client_id):
         server.send_message(msg)
         server.quit()
         
-        print(f"✅ Đã gửi email cảnh báo đến {email_to}")
+        print(f"✅ Đã gửi email cảnh báo đến {email_to} (dùng App Password từ config/.env)")
         
     except Exception as e:
         import traceback
@@ -815,6 +1006,7 @@ def send_alert_email(detection_id, client_id):
                 pass
 
 @app.route('/api/alert-settings', methods=['GET'])
+@login_required
 def get_alert_settings():
     """Lấy cấu hình cảnh báo"""
     try:
@@ -832,9 +1024,11 @@ def get_alert_settings():
             
             return jsonify({
                 'alert_email': None,
+                'alert_email_password': config.ALERT_EMAIL_PASSWORD,
                 'email_enabled': False,
-                # Telegram settings được lấy từ config
+                # Telegram settings - ưu tiên database, fallback config
                 'telegram_chat_id': config.TELEGRAM_CHAT_ID,
+                'telegram_bot_token': config.TELEGRAM_BOT_TOKEN,
                 'telegram_enabled': config.TELEGRAM_ENABLED,
                 'priority_classes': []  # Mặc định không có class ưu tiên
             }), 200
@@ -851,10 +1045,12 @@ def get_alert_settings():
         
         return jsonify({
             'alert_email': settings.alert_email,
+            'alert_email_password': settings.alert_email_password if settings.alert_email_password else config.ALERT_EMAIL_PASSWORD,
             'email_enabled': settings.email_enabled,
-            # Telegram settings được lấy từ config, không từ database
-            'telegram_chat_id': config.TELEGRAM_CHAT_ID,
-            'telegram_enabled': config.TELEGRAM_ENABLED,
+            # Telegram settings - ưu tiên database, fallback config
+            'telegram_chat_id': settings.telegram_chat_id if settings.telegram_chat_id else config.TELEGRAM_CHAT_ID,
+            'telegram_bot_token': settings.telegram_bot_token if settings.telegram_bot_token else config.TELEGRAM_BOT_TOKEN,
+            'telegram_enabled': settings.telegram_enabled if settings.telegram_enabled is not None else config.TELEGRAM_ENABLED,
             'priority_classes': priority_classes
         }), 200
         
@@ -862,6 +1058,7 @@ def get_alert_settings():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/alert-settings', methods=['POST', 'PUT'])
+@login_required
 def update_alert_settings():
     """Cập nhật cấu hình cảnh báo"""
     try:
@@ -875,9 +1072,19 @@ def update_alert_settings():
         
         if 'alert_email' in data:
             settings.alert_email = data['alert_email']
+        if 'alert_email_password' in data:
+            settings.alert_email_password = data['alert_email_password']
         if 'email_enabled' in data:
             settings.email_enabled = data.get('email_enabled', False)
-        # Telegram settings được cấu hình trong config.py, không lưu vào database
+        
+        # Telegram settings - lưu vào database
+        if 'telegram_chat_id' in data:
+            settings.telegram_chat_id = data['telegram_chat_id']
+        if 'telegram_bot_token' in data:
+            settings.telegram_bot_token = data['telegram_bot_token']
+        if 'telegram_enabled' in data:
+            settings.telegram_enabled = data.get('telegram_enabled', False)
+        
         if 'priority_classes' in data:
             # Lưu priority_classes dưới dạng JSON string
             priority_classes = data.get('priority_classes', [])
@@ -899,9 +1106,16 @@ def update_alert_settings():
 def test_telegram_alert():
     """Test gửi Telegram message"""
     try:
-        # Lấy chat_id từ config (không dùng database)
-        chat_id = config.TELEGRAM_CHAT_ID
-        bot_token = config.TELEGRAM_BOT_TOKEN
+        # Lấy từ database, fallback về config
+        session = Session()
+        settings = session.query(AlertSettings).first()
+        if settings:
+            chat_id = settings.telegram_chat_id if settings.telegram_chat_id else config.TELEGRAM_CHAT_ID
+            bot_token = settings.telegram_bot_token if settings.telegram_bot_token else config.TELEGRAM_BOT_TOKEN
+        else:
+            chat_id = config.TELEGRAM_CHAT_ID
+            bot_token = config.TELEGRAM_BOT_TOKEN
+        session.close()
         
         if not bot_token:
             return jsonify({'error': 'TELEGRAM_BOT_TOKEN chưa được cấu hình trong config'}), 400
@@ -932,18 +1146,56 @@ def test_telegram_alert():
         return jsonify({'error': f'Lỗi: {str(e)}'}), 500
 
 @app.route('/api/alert-settings/test', methods=['POST'])
+@login_required
 def test_alert_settings():
     session = None
     try:
         data = request.get_json() or {}
         test_email = data.get('email')
+        
+        print(f"\n{'='*60}")
+        print(f"📧 TEST EMAIL REQUEST")
+        print(f"{'='*60}")
+        print(f"Test email từ web: {test_email}")
 
         session = Session()
         settings = session.query(AlertSettings).first()
 
-        sender = config.ALERT_EMAIL_SENDER
+        # Reload .env để đảm bảo lấy App Password mới nhất (nếu có)
+        # Đọc trực tiếp từ os.getenv sau khi reload .env
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(override=True)  # override=True để ghi đè giá trị cũ
+            # Đọc lại từ environment sau khi reload .env
+            import os
+            env_password = os.getenv('ALERT_EMAIL_PASSWORD')
+            if env_password:
+                # Nếu có trong .env, dùng giá trị đó
+                config.ALERT_EMAIL_PASSWORD = env_password
+                print(f"✅ Đã reload App Password từ .env")
+        except Exception as e:
+            # Nếu không reload được, vẫn dùng giá trị hiện tại từ config
+            print(f"⚠️  Không thể reload .env: {e}, dùng giá trị từ config.py")
+            pass
+        
+        # Lấy từ database, fallback về config
+        # Email: ưu tiên database, fallback config
+        sender = settings.alert_email if settings and settings.alert_email else config.ALERT_EMAIL_SENDER
+        # Password: LUÔN dùng từ config/.env (cố định ở server), KHÔNG dùng từ database
         password = config.ALERT_EMAIL_PASSWORD
-        receiver = test_email or (settings.alert_email if settings else None)
+        receiver = test_email or (settings.alert_email if settings else None) or config.ALERT_EMAIL_SENDER
+        
+        print(f"\n{'='*60}")
+        print(f"📧 TEST EMAIL - DEBUG INFO")
+        print(f"{'='*60}")
+        print(f"Sender: {sender}")
+        print(f"Receiver: {receiver}")
+        print(f"Password từ config.ALERT_EMAIL_PASSWORD: {'*' * len(password) if password else 'None'} ({len(password) if password else 0} ký tự)")
+        if password and len(password) >= 8:
+            print(f"Password preview: {password[:4]}...{password[-4:]}")
+        print(f"Config file: {config.__file__}")
+        print(f"Password value check: {password}")
+        print(f"{'='*60}\n")
 
         if not sender or not password:
             return jsonify({'error': 'Thiếu ALERT_EMAIL_SENDER hoặc ALERT_EMAIL_PASSWORD'}), 400
@@ -997,17 +1249,55 @@ def test_alert_settings():
 
         msg.attach(MIMEText(html_body, 'html'))
 
-        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+        print(f"\n🔗 Đang kết nối SMTP...")
+        # Thử kết nối với timeout
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587, timeout=30)
+            print(f"✅ Đã kết nối SMTP")
+            
             server.starttls()
+            print(f"✅ Đã bật TLS")
+            
+            print(f"🔐 Đang đăng nhập với {sender}...")
+            print(f"   Sử dụng App Password từ: config.ALERT_EMAIL_PASSWORD")
             server.login(sender, password)
+            print(f"✅ Đã đăng nhập thành công!")
+            
+            print(f"📤 Đang gửi email đến {receiver}...")
             server.send_message(msg)
+            print(f"✅ Đã gửi email thành công!")
+            
+            server.quit()
+            print(f"✅ Hoàn tất test email\n")
+        except smtplib.SMTPAuthenticationError as e:
+            error_msg = f"Lỗi xác thực SMTP: {str(e)}. Kiểm tra lại App Password trong config.py hoặc .env"
+            print(f"❌ {error_msg}")
+            print(f"   App Password hiện tại: {password[:4] if len(password) >= 4 else 'N/A'}...{password[-4:] if len(password) >= 8 else 'N/A'}")
+            raise Exception(error_msg)
+        except smtplib.SMTPException as e:
+            error_msg = f"Lỗi SMTP: {str(e)}"
+            print(f"❌ {error_msg}")
+            raise Exception(error_msg)
+        except Exception as e:
+            error_msg = f"Lỗi kết nối: {str(e)}"
+            print(f"❌ {error_msg}")
+            raise Exception(error_msg)
 
         return jsonify({'message': f'Đã gửi email test đến {receiver}'}), 200
 
     except Exception as e:
+        print(f"\n❌ LỖI KHI TEST EMAIL:")
+        print(f"   Type: {type(e).__name__}")
+        print(f"   Message: {e}")
         import traceback
+        print(f"\n📋 Traceback:")
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        print(f"{'='*60}\n")
+        error_msg = str(e)
+        # Rút gọn error message nếu quá dài
+        if len(error_msg) > 200:
+            error_msg = error_msg[:200] + "..."
+        return jsonify({'error': f'Lỗi khi gửi email test: {error_msg}'}), 500
     finally:
         if session:
             try:
@@ -1424,6 +1714,7 @@ def processed_video_stream(client_id):
 
 
 @app.route('/api/detections/<int:detection_id>', methods=['DELETE'])
+@login_required
 def delete_detection(detection_id):
     """Xóa một detection"""
     try:
@@ -1456,6 +1747,7 @@ def delete_detection(detection_id):
 
 
 @app.route('/api/detections/bulk-delete', methods=['DELETE'])
+@login_required
 def bulk_delete_detections():
     """Xóa nhiều detections cùng lúc"""
     try:
@@ -1537,6 +1829,7 @@ def get_detection(detection_id):
 
 
 @app.route('/api/clients', methods=['GET'])
+@login_required
 def get_clients():
     """Get all clients"""
     session = None
@@ -1596,6 +1889,7 @@ def get_clients():
 
 
 @app.route('/api/clients', methods=['POST'])
+@login_required
 def create_client():
     """Create a new client"""
     session = None
@@ -2339,6 +2633,7 @@ def get_client_by_name(client_name):
 
 
 @app.route('/api/clients/<int:client_id>', methods=['PUT'])
+@login_required
 def update_client(client_id):
     """Update a client"""
     session = None
@@ -2456,6 +2751,7 @@ def update_client(client_id):
 
 
 @app.route('/api/clients/<int:client_id>', methods=['DELETE'])
+@login_required
 def delete_client(client_id):
     """Delete a client"""
     try:

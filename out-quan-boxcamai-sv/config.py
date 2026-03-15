@@ -27,8 +27,11 @@ MAX_IMAGES_PER_DETECTION = 5  # Maximum images to keep per detection class
 VIDEO_RECORD_BASE_DIR = os.path.join(os.path.dirname(__file__), 'recordings')
 
 # Email Alert Configuration (Gmail SMTP)
-ALERT_EMAIL_SENDER = os.getenv('ALERT_EMAIL_SENDER', '')  # Email gửi đi (ví dụ: your-email@gmail.com)
-ALERT_EMAIL_PASSWORD = os.getenv('ALERT_EMAIL_PASSWORD', '')  # App Password từ Gmail (không phải mật khẩu thường)
+# LƯU Ý: App Password có thể hết hạn, nếu lỗi "5.7.8 Username and Password not accepted"
+# thì cần tạo App Password mới từ: https://myaccount.google.com/apppasswords
+ALERT_EMAIL_SENDER = os.getenv('ALERT_EMAIL_SENDER', 'camainotify@gmail.com')  # Email gửi đi (ví dụ: your-email@gmail.com)
+ALERT_EMAIL_PASSWORD = os.getenv('ALERT_EMAIL_PASSWORD', 'tthmrawhvfwiadjy')  # App Password từ Gmail (16 ký tự, bỏ khoảng trắng)
+# CÁCH SỬA: Thay giá trị 'tthmrawhvfwiadjy' bằng App Password mới, hoặc tạo file .env với ALERT_EMAIL_PASSWORD=your-password
 
 # Telegram Bot Configuration
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8536552488:AAGmQD-vjI9nP3jV4dli1ToNNdKhfcv5rXU')  # Bot token từ @BotFather

@@ -4,6 +4,7 @@ from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.orm import sessionmaker
 from config import DATABASE_URL, SERVER_IMAGES_DIR
 import os
+import hashlib
 
 Base = declarative_base()
 
@@ -53,13 +54,24 @@ class Detection(Base):
     # Relationship to client
     client = relationship("Client", back_populates="detections")
 
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(100), nullable=False, unique=True)
+    password_hash = Column(String(255), nullable=False)  # Lưu hash của password
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class AlertSettings(Base):
     __tablename__ = 'alert_settings'
 
     id = Column(Integer, primary_key=True)
     alert_email = Column(String(255), nullable=True)  # Email để nhận cảnh báo
+    alert_email_password = Column(String(200), nullable=True)  # App Password từ Gmail
     email_enabled = Column(Boolean, default=False, nullable=False)
     telegram_chat_id = Column(String(50), nullable=True)  # Telegram Chat ID để nhận cảnh báo
+    telegram_bot_token = Column(String(200), nullable=True)  # Telegram Bot Token
     telegram_enabled = Column(Boolean, default=False, nullable=False)  # Bật/tắt cảnh báo Telegram
     priority_classes = Column(Text, nullable=True)  # JSON array: Danh sách class ưu tiên (ví dụ: ["fire", "smoke"])
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -108,6 +120,28 @@ def init_database():
             connection.commit()
             print("✅ Added 'rtsp_subtype' column to 'clients' table (default 1 = chất lượng thấp).")
     
+    # Auto-migration: Add telegram_bot_token column to alert_settings if not exists
+    try:
+        alert_columns = [col['name'] for col in inspector.get_columns('alert_settings')]
+        if 'telegram_bot_token' not in alert_columns:
+            with engine.connect() as connection:
+                connection.execute(text("ALTER TABLE alert_settings ADD COLUMN telegram_bot_token VARCHAR(200)"))
+                connection.commit()
+                print("✅ Added 'telegram_bot_token' column to 'alert_settings' table.")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not add telegram_bot_token column: {e}")
+    
+    # Auto-migration: Add alert_email_password column to alert_settings if not exists
+    try:
+        alert_columns = [col['name'] for col in inspector.get_columns('alert_settings')]
+        if 'alert_email_password' not in alert_columns:
+            with engine.connect() as connection:
+                connection.execute(text("ALTER TABLE alert_settings ADD COLUMN alert_email_password VARCHAR(200)"))
+                connection.commit()
+                print("✅ Added 'alert_email_password' column to 'alert_settings' table.")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not add alert_email_password column: {e}")
+    
     # Auto-migration: Add priority_classes column to clients if not exists
     try:
         if 'priority_classes' not in columns:
@@ -131,6 +165,22 @@ def init_database():
 
     # Create images directory
     os.makedirs(SERVER_IMAGES_DIR, exist_ok=True)
+    
+    # Tạo user mặc định nếu chưa có
+    try:
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        default_user = session.query(User).filter(User.username == 'admin').first()
+        if not default_user:
+            # Tạo password hash cho "camai2026"
+            password_hash = hashlib.sha256('camai2026'.encode()).hexdigest()
+            default_user = User(username='admin', password_hash=password_hash)
+            session.add(default_user)
+            session.commit()
+            print("✅ Đã tạo user mặc định: admin / camai2026")
+        session.close()
+    except Exception as e:
+        print(f"⚠️  Warning: Could not create default user: {e}")
 
     return engine
 

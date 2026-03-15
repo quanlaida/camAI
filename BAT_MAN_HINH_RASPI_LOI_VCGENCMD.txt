@@ -1,0 +1,90 @@
+═══════════════════════════════════════════════════════════════
+SỬA LỖI: vcgencmd display_power "Command not registered"
+═══════════════════════════════════════════════════════════════
+
+📌 LỖI:
+───────────────────────────────────────────────────────────────
+vc_gencmd_read_response returned -1
+error=1 error_msg="Command not registered"
+
+→ Lệnh display_power không được hỗ trợ trên Raspberry Pi này
+→ Có thể do firmware cũ hoặc model khác
+
+═══════════════════════════════════════════════════════════════
+CÁCH KHẮC PHỤC:
+═══════════════════════════════════════════════════════════════
+
+CÁCH 1: DÙNG TVSERVICE (KHUYẾN NGHỊ)
+───────────────────────────────────────────────────────────────
+
+# Bật màn hình:
+sudo tvservice -p
+sudo chvt 9
+sudo chvt 7
+
+# Hoặc:
+sudo tvservice -p && sudo chvt 9 && sudo chvt 7
+
+# Kiểm tra trạng thái:
+tvservice -s
+
+CÁCH 2: DÙNG FRAMEBUFFER
+───────────────────────────────────────────────────────────────
+
+# Bật framebuffer:
+sudo fbset -depth 8
+sudo fbset -depth 16
+
+# Hoặc:
+echo 0 | sudo tee /sys/class/graphics/fbcon/cursor_blink
+
+CÁCH 3: KHỞI ĐỘNG LẠI RASPBERRY PI
+───────────────────────────────────────────────────────────────
+
+# Nếu các cách trên không được:
+sudo reboot
+
+CÁCH 4: KIỂM TRA VÀ CẬP NHẬT FIRMWARE
+───────────────────────────────────────────────────────────────
+
+# Kiểm tra phiên bản firmware:
+vcgencmd version
+
+# Cập nhật firmware (nếu cần):
+sudo apt update
+sudo apt upgrade -y
+sudo rpi-update
+
+# Sau đó reboot:
+sudo reboot
+
+CÁCH 5: BẬT LẠI BẰNG LIGHTDM (NẾU CẦN GUI)
+───────────────────────────────────────────────────────────────
+
+# Nếu chỉ cần bật màn hình, không cần GUI:
+# Dùng cách 1 (tvservice)
+
+# Nếu cần GUI:
+sudo systemctl start lightdm
+
+═══════════════════════════════════════════════════════════════
+LỆNH NHANH NHẤT:
+═══════════════════════════════════════════════════════════════
+
+# Bật màn hình:
+sudo tvservice -p && sudo chvt 9 && sudo chvt 7
+
+# Kiểm tra:
+tvservice -s
+
+═══════════════════════════════════════════════════════════════
+LƯU Ý:
+═══════════════════════════════════════════════════════════════
+
+- Nếu tvservice cũng không được, có thể Pi không có màn hình kết nối
+- Kiểm tra HDMI có kết nối không: tvservice -s
+- Nếu không có màn hình, lightdm sẽ không chạy được
+- Có thể disable lightdm nếu không cần GUI:
+  sudo systemctl disable lightdm
+
+═══════════════════════════════════════════════════════════════

@@ -1,0 +1,99 @@
+═══════════════════════════════════════════════════════════════
+PHÂN TÍCH ĐIỆN ÁP 0.72V
+═══════════════════════════════════════════════════════════════
+
+📌 KẾT QUẢ KIỂM TRA:
+───────────────────────────────────────────────────────────────
+- temp=36.2°C → Nhiệt độ BÌNH THƯỜNG ✅
+- volt=0.7200V → Điện áp core CPU
+- dmesg: Không có cảnh báo under-voltage ✅
+
+═══════════════════════════════════════════════════════════════
+GIẢI THÍCH:
+═══════════════════════════════════════════════════════════════
+
+1. ĐIỆN ÁP 0.72V LÀ GÌ?
+───────────────────────────────────────────────────────────────
+- Đây là điện áp CORE của CPU (không phải điện áp nguồn 5V)
+- Raspberry Pi dùng điện áp core khoảng 0.8-1.2V
+- 0.72V hơi thấp nhưng có thể chấp nhận được nếu không có throttling
+
+2. ĐIỆN ÁP NGUỒN 5V:
+───────────────────────────────────────────────────────────────
+- vcgencmd measure_volts KHÔNG đo điện áp nguồn 5V
+- Để kiểm tra điện áp nguồn, cần dùng multimeter hoặc kiểm tra throttling
+
+═══════════════════════════════════════════════════════════════
+KIỂM TRA THÊM:
+═══════════════════════════════════════════════════════════════
+
+1. KIỂM TRA THROTTLING (QUAN TRỌNG NHẤT):
+───────────────────────────────────────────────────────────────
+
+vcgencmd get_throttled
+
+# Kết quả:
+# 0x0 = OK (không có vấn đề)
+# 0x50000 = Under-voltage detected (THIẾU ĐIỆN!)
+# 0x50005 = Under-voltage + Throttling
+# 0x80000 = Throttling do nhiệt độ
+
+2. KIỂM TRA TẦN SỐ CPU:
+───────────────────────────────────────────────────────────────
+
+# Tần số hiện tại:
+vcgencmd measure_clock arm
+
+# Tần số tối đa:
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+
+# Nếu tần số bị giảm → Có thể do thiếu điện
+
+3. KIỂM TRA TẤT CẢ THÔNG SỐ:
+───────────────────────────────────────────────────────────────
+
+# Chạy tất cả lệnh kiểm tra:
+echo "=== KIỂM TRA NGUỒN ĐIỆN ==="
+echo "1. Throttling:"
+vcgencmd get_throttled
+echo ""
+echo "2. Điện áp core:"
+vcgencmd measure_volts
+echo ""
+echo "3. Nhiệt độ:"
+vcgencmd measure_temp
+echo ""
+echo "4. Tần số CPU:"
+vcgencmd measure_clock arm
+echo ""
+echo "5. Log cảnh báo:"
+dmesg | grep -i "under-voltage\|throttl" | tail -5
+
+═══════════════════════════════════════════════════════════════
+ĐÁNH GIÁ:
+═══════════════════════════════════════════════════════════════
+
+✅ TỐT NẾU:
+- get_throttled = 0x0
+- Không có cảnh báo trong dmesg
+- Nhiệt độ < 60°C
+- Tần số CPU ở mức bình thường
+
+⚠️ CẦN CHÚ Ý NẾU:
+- get_throttled = 0x50000 (thiếu điện áp)
+- Tần số CPU bị giảm
+- Có cảnh báo trong dmesg
+
+❌ VẤN ĐỀ NẾU:
+- get_throttled = 0x50005 (thiếu điện + throttling)
+- Hệ thống không ổn định
+- Reboot đột ngột
+
+═══════════════════════════════════════════════════════════════
+LỆNH KIỂM TRA ĐẦY ĐỦ:
+═══════════════════════════════════════════════════════════════
+
+# Chạy lệnh này để kiểm tra toàn bộ:
+vcgencmd get_throttled && echo "" && vcgencmd measure_volts && vcgencmd measure_temp && echo "" && vcgencmd measure_clock arm
+
+═══════════════════════════════════════════════════════════════

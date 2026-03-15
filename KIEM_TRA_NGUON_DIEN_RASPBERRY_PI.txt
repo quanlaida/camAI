@@ -1,0 +1,197 @@
+═══════════════════════════════════════════════════════════════
+KIỂM TRA NGUỒN ĐIỆN RASPBERRY PI
+═══════════════════════════════════════════════════════════════
+
+📌 TẠI SAO CẦN KIỂM TRA:
+───────────────────────────────────────────────────────────────
+- Nguồn điện không đủ có thể gây:
+  + Lightdm không chạy được
+  + VNC không hoạt động
+  + Hệ thống không ổn định
+  + Throttling (giảm hiệu năng)
+  + Reboot đột ngột
+
+═══════════════════════════════════════════════════════════════
+CÁCH 1: KIỂM TRA BẰNG VCGENCMD (KHUYẾN NGHỊ)
+═══════════════════════════════════════════════════════════════
+
+1. KIỂM TRA THROTTLING:
+───────────────────────────────────────────────────────────────
+
+# Xem trạng thái throttling:
+vcgencmd get_throttled
+
+# Kết quả:
+# 0x0 = OK (không có vấn đề)
+# 0x50000 = Under-voltage detected (thiếu điện áp)
+# 0x50005 = Under-voltage + Throttling (thiếu điện + giảm hiệu năng)
+# 0x80000 = Throttling (giảm hiệu năng)
+
+2. KIỂM TRA ĐIỆN ÁP:
+───────────────────────────────────────────────────────────────
+
+# Xem điện áp hiện tại:
+vcgencmd measure_volts
+
+# Kết quả: volt=1.2000V (ví dụ)
+# Nên > 4.75V cho Pi 4, > 4.63V cho Pi 3
+
+3. KIỂM TRA NHIỆT ĐỘ:
+───────────────────────────────────────────────────────────────
+
+# Xem nhiệt độ CPU:
+vcgencmd measure_temp
+
+# Nên < 80°C
+
+4. KIỂM TRA TẦN SỐ CPU:
+───────────────────────────────────────────────────────────────
+
+# Xem tần số CPU hiện tại:
+vcgencmd measure_clock arm
+
+# Xem tần số tối đa:
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+
+═══════════════════════════════════════════════════════════════
+CÁCH 2: KIỂM TRA BẰNG LỆNH KHÁC
+═══════════════════════════════════════════════════════════════
+
+1. KIỂM TRA LOG THROTTLING:
+───────────────────────────────────────────────────────────────
+
+# Xem log dmesg:
+dmesg | grep -i "under-voltage\|throttl"
+
+# Hoặc:
+journalctl -k | grep -i "under-voltage\|throttl"
+
+2. KIỂM TRA ĐIỆN ÁP QUA SYSFS:
+───────────────────────────────────────────────────────────────
+
+# Xem điện áp (nếu có):
+cat /sys/class/hwmon/hwmon0/in0_input 2>/dev/null
+
+# Hoặc:
+cat /sys/class/power_supply/BAT0/voltage_now 2>/dev/null
+
+3. KIỂM TRA CẢNH BÁO TRONG LOG:
+───────────────────────────────────────────────────────────────
+
+# Xem tất cả cảnh báo:
+dmesg | grep -i "voltage\|power\|throttl"
+
+═══════════════════════════════════════════════════════════════
+CÁCH 3: SCRIPT KIỂM TRA TỰ ĐỘNG
+═══════════════════════════════════════════════════════════════
+
+# Tạo script kiểm tra:
+nano ~/check_power.sh
+
+# Thêm nội dung:
+#!/bin/bash
+echo "=== KIỂM TRA NGUỒN ĐIỆN RASPBERRY PI ==="
+echo ""
+echo "1. Throttling status:"
+vcgencmd get_throttled
+echo ""
+echo "2. Điện áp:"
+vcgencmd measure_volts
+echo ""
+echo "3. Nhiệt độ:"
+vcgencmd measure_temp
+echo ""
+echo "4. Tần số CPU:"
+vcgencmd measure_clock arm
+echo ""
+echo "5. Log throttling:"
+dmesg | grep -i "under-voltage\|throttl" | tail -5
+echo ""
+echo "=== KẾT THÚC ==="
+
+# Lưu và cấp quyền:
+chmod +x ~/check_power.sh
+
+# Chạy:
+~/check_power.sh
+
+═══════════════════════════════════════════════════════════════
+GIẢI THÍCH KẾT QUẢ:
+═══════════════════════════════════════════════════════════════
+
+THROTTLING STATUS (get_throttled):
+───────────────────────────────────────────────────────────────
+0x0 = OK - Không có vấn đề
+0x1 = Under-voltage detected (thiếu điện áp)
+0x2 = Frequency capping (giảm tần số)
+0x4 = Currently throttled (đang bị throttling)
+0x8 = Soft temperature limit (nhiệt độ cao)
+
+Kết quả thường gặp:
+- 0x0 = OK
+- 0x50000 = Thiếu điện áp (quan trọng!)
+- 0x50005 = Thiếu điện áp + Throttling
+- 0x80000 = Throttling do nhiệt độ
+
+ĐIỆN ÁP (measure_volts):
+───────────────────────────────────────────────────────────────
+- Raspberry Pi 4: Nên > 4.75V
+- Raspberry Pi 3: Nên > 4.63V
+- Nếu < 4.5V: Có thể gây vấn đề
+
+NHIỆT ĐỘ (measure_temp):
+───────────────────────────────────────────────────────────────
+- < 60°C: Tốt
+- 60-80°C: Bình thường
+- > 80°C: Nóng, có thể gây throttling
+- > 85°C: Quá nóng, hệ thống sẽ tự bảo vệ
+
+═══════════════════════════════════════════════════════════════
+CÁCH SỬA NẾU THIẾU ĐIỆN:
+═══════════════════════════════════════════════════════════════
+
+1. KIỂM TRA ADAPTER:
+───────────────────────────────────────────────────────────────
+- Raspberry Pi 4: Cần adapter 5V/3A (15W)
+- Raspberry Pi 3: Cần adapter 5V/2.5A (12.5W)
+- Dùng adapter chính hãng hoặc chất lượng tốt
+
+2. KIỂM TRA CÁP USB:
+───────────────────────────────────────────────────────────────
+- Dùng cáp USB-C chất lượng tốt (cho Pi 4)
+- Cáp dài hoặc chất lượng kém có thể gây sụt áp
+
+3. GIẢM TẢI:
+───────────────────────────────────────────────────────────────
+- Tắt các service không cần thiết
+- Giảm tần số CPU nếu không cần hiệu năng cao
+- Tắt WiFi/Bluetooth nếu không dùng
+
+4. KIỂM TRA PHỤ KIỆN:
+───────────────────────────────────────────────────────────────
+- USB devices tiêu thụ nhiều điện
+- Camera module
+- HDD/SSD qua USB
+
+═══════════════════════════════════════════════════════════════
+LỆNH NHANH NHẤT:
+═══════════════════════════════════════════════════════════════
+
+# Kiểm tra nhanh:
+vcgencmd get_throttled
+vcgencmd measure_volts
+vcgencmd measure_temp
+
+# Xem log:
+dmesg | grep -i "under-voltage\|throttl" | tail -10
+
+═══════════════════════════════════════════════════════════════
+LƯU Ý:
+═══════════════════════════════════════════════════════════════
+
+- Nếu get_throttled = 0x50000 hoặc 0x50005: THIẾU ĐIỆN!
+- Cần thay adapter hoặc cáp USB
+- Thiếu điện có thể gây lightdm lỗi, VNC không hoạt động
+- Kiểm tra thường xuyên: watch -n 1 vcgencmd get_throttled
+
+═══════════════════════════════════════════════════════════════

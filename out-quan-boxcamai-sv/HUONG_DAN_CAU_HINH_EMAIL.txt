@@ -1,0 +1,34 @@
+========================================
+HUONG DAN CAU HINH EMAIL ALERT
+========================================
+
+Co 2 cach de cau hinh App Password cho Email:
+
+CACH 1: Tao file .env (KHUYEN NGHI)
+------------------------------------
+1. Tao file .env trong thu muc: out-quan-boxcamai-sv/
+2. Noi dung file .env:
+   ALERT_EMAIL_SENDER=your-email@gmail.com
+   ALERT_EMAIL_PASSWORD=your-16-character-app-password
+
+Vi du:
+   ALERT_EMAIL_SENDER=nguyenminhquan01082004@gmail.com
+   ALERT_EMAIL_PASSWORD=abcd efgh ijkl mnop
+
+3. Khoi dong lai server
+
+CACH 2: Nhap truc tiep tren Web Interface
+------------------------------------------
+1. Mo web interface: http://localhost:5000
+2. Nhap Email vao o "Email:"
+3. Nhap App Password vao o "App Password"
+4. Click "Luu" -> nhap mat khau xac nhan: camai2026
+5. Click "Test" de kiem tra
+
+Luu y:
+- App Password la mat khau 16 ky tu tu Gmail (khong phai mat khau thuong)
+- De lay App Password: Google Account -> Security -> 2-Step Verification -> App passwords
+- Neu da co trong .env thi khong can nhap lai tren web interface
+- Server uu tien lay tu Database, neu khong co thi lay tu .env/config.py
+
+========================================

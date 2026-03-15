@@ -1,0 +1,112 @@
+═══════════════════════════════════════════════════════════════
+HƯỚNG DẪN CHẠY SCRIPT TEST DETECTION
+═══════════════════════════════════════════════════════════════
+
+📌 FILE: test_detection_from_client.py
+───────────────────────────────────────────────────────────────
+
+✅ CHẠY TRÊN: MÁY TÍNH (KHÔNG PHẢI SERVER, KHÔNG PHẢI CLIENT)
+───────────────────────────────────────────────────────────────
+
+Mục đích:
+- Mô phỏng client gửi detection lên server
+- Test xem server có nhận và lưu được không
+- So sánh với client thật để tìm lỗi
+
+═══════════════════════════════════════════════════════════════
+CÁCH SỬ DỤNG:
+═══════════════════════════════════════════════════════════════
+
+BƯỚC 1: SỬA CẤU HÌNH
+───────────────────────────────────────────────────────────────
+
+Mở file: test_detection_from_client.py
+
+Sửa dòng 11-12:
+```python
+SERVER_HOST = "192.168.1.100"  # IP của server
+SERVER_PORT = 5000
+```
+
+Sửa dòng 15:
+```python
+SERIAL_NUMBER = "202500000"  # Serial number của client thật
+```
+
+BƯỚC 2: CÀI ĐẶT THƯ VIỆN
+───────────────────────────────────────────────────────────────
+
+Trên máy tính (Windows/Linux):
+```bash
+pip install requests pillow
+```
+
+BƯỚC 3: CHẠY SCRIPT
+───────────────────────────────────────────────────────────────
+
+Trên máy tính:
+```bash
+python test_detection_from_client.py
+```
+
+BƯỚC 4: XEM KẾT QUẢ
+───────────────────────────────────────────────────────────────
+
+Script sẽ:
+1. Kiểm tra client có tồn tại trên server không
+2. Gửi detection test lên server
+3. Hiển thị kết quả thành công/thất bại
+
+═══════════════════════════════════════════════════════════════
+SO SÁNH:
+═══════════════════════════════════════════════════════════════
+
+SCRIPT TEST (test_detection_from_client.py):
+───────────────────────────────────────────────────────────────
+- Chạy trên: Máy tính
+- Mục đích: Test server có hoạt động không
+- Gửi: Detection giả lập
+- Kết quả: Nếu thành công → Server OK
+
+CLIENT THẬT (detection.py + sender.py):
+───────────────────────────────────────────────────────────────
+- Chạy trên: Raspberry Pi (client)
+- Mục đích: Phát hiện object và gửi lên server
+- Gửi: Detection thật từ camera
+- Kết quả: Nếu thất bại → So sánh với script test
+
+SERVER (server.py):
+───────────────────────────────────────────────────────────────
+- Chạy trên: Server (máy tính/server)
+- Mục đích: Nhận và lưu detection
+- Nhận: Detection từ client hoặc script test
+- Lưu: Vào database và thư mục images
+
+═══════════════════════════════════════════════════════════════
+LƯU Ý:
+═══════════════════════════════════════════════════════════════
+
+1. Script test chạy trên MÁY TÍNH, không phải server
+2. Script test cần kết nối mạng đến server
+3. Đảm bảo Serial number khớp với client thật
+4. Đảm bảo client đã được tạo trên server (web UI)
+
+═══════════════════════════════════════════════════════════════
+VÍ DỤ:
+═══════════════════════════════════════════════════════════════
+
+Máy tính (192.168.1.50):
+  └─> python test_detection_from_client.py
+      └─> Gửi request đến server
+
+Server (192.168.1.100:5000):
+  └─> server.py đang chạy
+      └─> Nhận request từ script test
+      └─> Lưu detection vào database
+
+Client thật (Raspberry Pi):
+  └─> detection.py đang chạy
+      └─> Gửi detection thật lên server
+      └─> Server nhận và lưu (hoặc không)
+
+═══════════════════════════════════════════════════════════════

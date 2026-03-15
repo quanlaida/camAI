@@ -1,0 +1,368 @@
+═══════════════════════════════════════════════════════════════════════════
+    HƯỚNG DẪN CÀI ĐẶT SERVER CAMAI LÊN MÁY MỚI
+═══════════════════════════════════════════════════════════════════════════
+
+📋 YÊU CẦU HỆ THỐNG:
+───────────────────────────────────────────────────────────────────────────
+  • Hệ điều hành: Windows 10/11, Linux (Ubuntu/Debian), hoặc macOS
+  • Python: Phiên bản 3.8 trở lên
+  • RAM: Tối thiểu 2GB (khuyến nghị 4GB+)
+  • Ổ cứng: Tối thiểu 5GB trống (để lưu ảnh và video)
+  • Kết nối mạng: Internet để nhận dữ liệu từ client và gửi cảnh báo
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 1: CÀI ĐẶT PYTHON
+═══════════════════════════════════════════════════════════════════════════
+
+  Windows:
+    • Tải Python từ: https://www.python.org/downloads/
+    • Khi cài đặt, NHỚ TICK vào "Add Python to PATH"
+    • Kiểm tra: Mở PowerShell/CMD, gõ: python --version
+
+  Linux (Ubuntu/Debian):
+    sudo apt update
+    sudo apt install python3 python3-pip python3-venv
+
+  macOS:
+    • Cài qua Homebrew: brew install python3
+    • Hoặc tải từ: https://www.python.org/downloads/
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 2: SAO CHÉP THƯ MỤC SERVER
+═══════════════════════════════════════════════════════════════════════════
+
+  1. Copy toàn bộ thư mục "out-quan-boxcamai-sv" lên máy mới
+  2. Đặt vào vị trí mong muốn (ví dụ: C:\camAI\out-quan-boxcamai-sv)
+  3. Mở Terminal/PowerShell/CMD và di chuyển vào thư mục:
+     cd C:\camAI\out-quan-boxcamai-sv
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 3: TẠO VIRTUAL ENVIRONMENT (KHUYẾN NGHỊ)
+═══════════════════════════════════════════════════════════════════════════
+
+  Windows:
+    python -m venv venv
+    
+    # Cách 1: Dùng activate.bat (khuyến nghị - tránh lỗi PowerShell)
+    venv\Scripts\activate.bat
+    
+    # Cách 2: Nếu dùng PowerShell và gặp lỗi "execution policy"
+    # Chạy lệnh này trước (chỉ cần 1 lần):
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+    
+    # Sau đó mới chạy:
+    venv\Scripts\activate
+    
+    # Cách 3: Bypass policy tạm thời (chỉ cho lần này)
+    powershell -ExecutionPolicy Bypass -File venv\Scripts\Activate.ps1
+
+  Linux/macOS:
+    python3 -m venv venv
+    source venv/bin/activate
+
+  Sau khi activate, dấu nhắc sẽ có (venv) ở đầu.
+  
+  ⚠️ LƯU Ý: Nếu gặp lỗi "execution policy" trên Windows PowerShell:
+    → Dùng CMD thay vì PowerShell, hoặc
+    → Dùng activate.bat thay vì activate, hoặc
+    → Chạy: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 4: CÀI ĐẶT DEPENDENCIES
+═══════════════════════════════════════════════════════════════════════════
+
+  pip install -r requirements.txt
+
+  Các package sẽ được cài:
+    • Flask==2.3.3          (Web framework)
+    • Flask-CORS==4.0.0     (CORS support)
+    • SQLAlchemy==2.0.23    (Database ORM)
+    • Werkzeug==2.3.7       (WSGI utilities)
+
+  Nếu cần gửi email cảnh báo, cài thêm:
+    pip install python-dotenv
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 5: CÀI ĐẶT FFMPEG (TÙY CHỌN - CHO CHỨC NĂNG GHI VIDEO)
+═══════════════════════════════════════════════════════════════════════════
+
+  Windows:
+    Cách 1: Dùng Chocolatey (khuyến nghị)
+      choco install ffmpeg
+    
+    Cách 2: Dùng winget (Windows 10/11)
+      winget install --id Gyan.FFmpeg
+    
+    Cách 3: Tải thủ công
+      1. Truy cập: https://www.gyan.dev/ffmpeg/builds/
+      2. Tải "ffmpeg-release-essentials.zip"
+      3. Giải nén vào: C:\ffmpeg
+      4. Thêm vào PATH:
+         - Mở System Properties → Environment Variables
+         - Thêm: C:\ffmpeg\bin vào PATH
+      5. Khởi động lại terminal
+
+    Cách 4: Tải từ ffmpeg.org
+      1. Truy cập: https://ffmpeg.org/download.html
+      2. Chọn Windows builds
+      3. Tải và cài đặt tương tự Cách 3
+
+  Kiểm tra cài đặt:
+    ffmpeg -version
+
+  LƯU Ý: Nếu không cài ffmpeg, server vẫn chạy bình thường nhưng 
+         chức năng ghi video sẽ không hoạt động.
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 6: KHỞI TẠO DATABASE
+═══════════════════════════════════════════════════════════════════════════
+
+  Chạy lệnh để tạo database và các bảng:
+    python database_setup.py
+
+  Hoặc nếu dùng Python 3:
+    python3 database_setup.py
+
+  Kết quả mong đợi:
+    ✅ Database initialized successfully!
+
+  File database sẽ được tạo: detections.db (SQLite)
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 7: CẤU HÌNH MÔI TRƯỜNG (TÙY CHỌN)
+═══════════════════════════════════════════════════════════════════════════
+
+  Tạo file .env trong thư mục server (nếu muốn dùng biến môi trường):
+
+    TELEGRAM_BOT_TOKEN=your_bot_token_here
+    TELEGRAM_CHAT_ID=your_chat_id_here
+    TELEGRAM_ENABLED=true
+    ALERT_EMAIL_SENDER=your_email@gmail.com
+    ALERT_EMAIL_PASSWORD=your_app_password
+
+  LƯU Ý: Nếu không tạo file .env, các giá trị mặc định trong config.py sẽ được dùng.
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 8: CẤU HÌNH TELEGRAM (NẾU CẦN)
+═══════════════════════════════════════════════════════════════════════════
+
+  1. Tạo bot Telegram:
+     • Mở Telegram, tìm @BotFather
+     • Gửi lệnh: /newbot
+     • Làm theo hướng dẫn để lấy Bot Token
+
+  2. Tạo nhóm Telegram (hoặc dùng nhóm có sẵn):
+     • Tạo nhóm mới hoặc chọn nhóm hiện có
+     • Thêm bot vào nhóm
+     • Lấy Chat ID của nhóm:
+       - Gửi tin nhắn bất kỳ trong nhóm
+       - Truy cập: https://api.telegram.org/bot<BOT_TOKEN>/getUpdates
+       - Tìm "chat":{"id":-xxxxx} (số âm là nhóm)
+
+  3. Cập nhật config.py hoặc .env:
+     TELEGRAM_BOT_TOKEN = 'your_bot_token'
+     TELEGRAM_CHAT_ID = '-your_group_chat_id'
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 9: CẤU HÌNH EMAIL (NẾU CẦN)
+═══════════════════════════════════════════════════════════════════════════
+
+  1. Tạo App Password cho Gmail:
+     • Vào Google Account → Security
+     • Bật 2-Step Verification
+     • Tạo App Password cho "Mail"
+     • Copy mật khẩu 16 ký tự
+
+  2. Cập nhật config.py hoặc .env:
+     ALERT_EMAIL_SENDER = 'your_email@gmail.com'
+     ALERT_EMAIL_PASSWORD = 'your_16_char_app_password'
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 10: KIỂM TRA CẤU HÌNH
+═══════════════════════════════════════════════════════════════════════════
+
+  Mở file config.py và kiểm tra các cấu hình:
+
+    • SERVER_HOST = '0.0.0.0'        (Lắng nghe tất cả IP)
+    • SERVER_PORT = 5000              (Cổng server)
+    • DATABASE_URL = 'sqlite:///detections.db'
+    • TELEGRAM_BOT_TOKEN              (Nếu dùng Telegram)
+    • TELEGRAM_CHAT_ID                (Nếu dùng Telegram)
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 11: CHẠY SERVER
+═══════════════════════════════════════════════════════════════════════════
+
+  Chạy lệnh:
+    python server.py
+
+  Hoặc:
+    python3 server.py
+
+  Kết quả mong đợi:
+    ✅ Server đang chạy tại: http://0.0.0.0:5000
+    ✅ Database đã kết nối
+    ✅ Telegram Bot Token: ... (nếu đã cấu hình)
+
+  Server sẽ chạy và lắng nghe các request từ client.
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 12: KIỂM TRA SERVER HOẠT ĐỘNG
+═══════════════════════════════════════════════════════════════════════════
+
+  1. Mở trình duyệt, truy cập:
+     http://localhost:5000
+     hoặc
+     http://127.0.0.1:5000
+
+  2. Nếu thấy giao diện web, server đã chạy thành công!
+
+  3. Test Telegram (nếu đã cấu hình):
+     python test_telegram_group.py
+
+═══════════════════════════════════════════════════════════════════════════
+BƯỚC 13: CẤU HÌNH FIREWALL (NẾU CẦN)
+═══════════════════════════════════════════════════════════════════════════
+
+  Windows:
+    • Mở Windows Defender Firewall
+    • Cho phép Python qua firewall
+    • Hoặc mở cổng 5000
+
+  Linux (Ubuntu/Debian):
+    sudo ufw allow 5000/tcp
+    sudo ufw reload
+
+═══════════════════════════════════════════════════════════════════════════
+CHẠY SERVER NHƯ SERVICE (TÙY CHỌN - LINUX)
+═══════════════════════════════════════════════════════════════════════════
+
+  Tạo file service: /etc/systemd/system/camai-server.service
+
+  [Unit]
+  Description=CamAI Server
+  After=network.target
+
+  [Service]
+  Type=simple
+  User=your_username
+  WorkingDirectory=/path/to/out-quan-boxcamai-sv
+  ExecStart=/path/to/venv/bin/python3 server.py
+  Restart=always
+  RestartSec=10
+
+  [Install]
+  WantedBy=multi-user.target
+
+  Sau đó:
+    sudo systemctl daemon-reload
+    sudo systemctl enable camai-server
+    sudo systemctl start camai-server
+    sudo systemctl status camai-server
+
+═══════════════════════════════════════════════════════════════════════════
+CẤU TRÚC THƯ MỤC QUAN TRỌNG
+═══════════════════════════════════════════════════════════════════════════
+
+  out-quan-boxcamai-sv/
+    ├── server.py              (File chính chạy server)
+    ├── config.py              (Cấu hình server)
+    ├── database_setup.py      (Khởi tạo database)
+    ├── requirements.txt       (Dependencies)
+    ├── detections.db          (Database SQLite - tự tạo)
+    ├── captured_images/       (Thư mục lưu ảnh detection)
+    ├── recordings/            (Thư mục lưu video)
+    ├── templates/             (HTML templates)
+    ├── web/                   (Static files: CSS, JS, images)
+    └── .env                   (Biến môi trường - tùy chọn)
+
+═══════════════════════════════════════════════════════════════════════════
+XỬ LÝ LỖI THƯỜNG GẶP
+═══════════════════════════════════════════════════════════════════════════
+
+  1. Lỗi "execution policy" khi activate venv trên PowerShell:
+     → Cách 1 (Nhanh nhất): Dùng CMD thay vì PowerShell, hoặc dùng:
+        venv\Scripts\activate.bat
+     → Cách 2: Cho phép script PowerShell (chạy 1 lần):
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+        Sau đó chạy lại: venv\Scripts\activate
+     → Cách 3: Bypass tạm thời:
+        powershell -ExecutionPolicy Bypass -File venv\Scripts\Activate.ps1
+
+  2. Lỗi "Module not found":
+     → Chạy lại: pip install -r requirements.txt
+     → Đảm bảo đã activate virtual environment
+
+  3. Lỗi "Port already in use":
+     → Đổi SERVER_PORT trong config.py
+     → Hoặc tắt ứng dụng đang dùng cổng 5000
+
+  4. Lỗi "Database locked":
+     → Đảm bảo chỉ có 1 instance server đang chạy
+     → Kiểm tra file detections.db không bị khóa
+
+  5. Lỗi Telegram không gửi được:
+     → Kiểm tra Bot Token đúng chưa
+     → Kiểm tra Chat ID đúng chưa (số âm cho nhóm)
+     → Kiểm tra bot đã được thêm vào nhóm chưa
+
+  6. Lỗi Email không gửi được:
+     → Kiểm tra App Password (không phải mật khẩu thường)
+     → Kiểm tra 2-Step Verification đã bật chưa
+
+  7. Cảnh báo "ffmpeg không được tìm thấy":
+     → Cài đặt ffmpeg (xem hướng dẫn bên dưới)
+     → Chức năng ghi video sẽ không hoạt động nếu thiếu ffmpeg
+
+═══════════════════════════════════════════════════════════════════════════
+KIỂM TRA LOGS
+═══════════════════════════════════════════════════════════════════════════
+
+  Khi chạy server, logs sẽ hiển thị trên terminal:
+    • ✅ = Thành công
+    • ⚠️  = Cảnh báo
+    • ❌ = Lỗi
+
+  Nếu chạy như service (Linux):
+    sudo journalctl -u camai-server -f
+
+═══════════════════════════════════════════════════════════════════════════
+LIÊN KẾT CLIENT VỚI SERVER
+═══════════════════════════════════════════════════════════════════════════
+
+  Trên client, cấu hình:
+    SERVER_URL = "http://your_server_ip:5000/detect"
+    hoặc
+    SERVER_URL = "https://your_domain.com/detect"
+
+  Đảm bảo:
+    • Server đang chạy
+    • Firewall cho phép cổng 5000
+    • Client có thể kết nối đến server
+
+═══════════════════════════════════════════════════════════════════════════
+TÓM TẮT CÁC BƯỚC CHÍNH
+═══════════════════════════════════════════════════════════════════════════
+
+  1. ✅ Cài Python 3.8+
+  2. ✅ Copy thư mục server
+  3. ✅ Tạo virtual environment (khuyến nghị)
+  4. ✅ Cài dependencies: pip install -r requirements.txt
+  5. ✅ Cài ffmpeg (tùy chọn - cho chức năng ghi video)
+  6. ✅ Khởi tạo database: python database_setup.py
+  7. ✅ Cấu hình Telegram/Email (nếu cần)
+  8. ✅ Chạy server: python server.py
+  9. ✅ Kiểm tra: http://localhost:5000
+
+═══════════════════════════════════════════════════════════════════════════
+HỖ TRỢ
+═══════════════════════════════════════════════════════════════════════════
+
+  Nếu gặp vấn đề, kiểm tra:
+    • Logs trên terminal khi chạy server
+    • File config.py có đúng cấu hình không
+    • Database đã được khởi tạo chưa (detections.db)
+    • Dependencies đã cài đầy đủ chưa
+
+═══════════════════════════════════════════════════════════════════════════
+

@@ -1,0 +1,156 @@
+═══════════════════════════════════════════════════════════════
+HƯỚNG DẪN GỠ CÀI ĐẶT VÀ CÀI LẠI LIGHTDM TRÊN RASPBERRY PI
+═══════════════════════════════════════════════════════════════
+
+📌 MỤC ĐÍCH:
+───────────────────────────────────────────────────────────────
+- Gỡ cài đặt lightdm hoàn toàn
+- Xóa cấu hình cũ
+- Cài đặt lại lightdm mới
+- Cấu hình lại từ đầu
+
+═══════════════════════════════════════════════════════════════
+BƯỚC 1: DỪNG VÀ GỠ CÀI ĐẶT LIGHTDM
+═══════════════════════════════════════════════════════════════
+
+# 1. Dừng lightdm
+sudo systemctl stop lightdm
+sudo systemctl disable lightdm
+
+# 2. Kill tất cả process liên quan
+sudo pkill -9 lightdm
+sudo pkill -9 Xorg
+sudo pkill -9 X
+
+# 3. Gỡ cài đặt lightdm
+sudo apt remove --purge lightdm -y
+sudo apt autoremove -y
+sudo apt autoclean
+
+# 4. Xóa cấu hình cũ (QUAN TRỌNG!)
+sudo rm -rf /etc/lightdm/
+sudo rm -rf /var/lib/lightdm/
+sudo rm -rf /var/log/lightdm/
+sudo rm -rf /tmp/.X0-lock
+sudo rm -rf /tmp/.X11-unix/
+
+═══════════════════════════════════════════════════════════════
+BƯỚC 2: CÀI ĐẶT LẠI LIGHTDM
+═══════════════════════════════════════════════════════════════
+
+# 1. Cập nhật package list
+sudo apt update
+
+# 2. Cài đặt lightdm
+sudo apt install lightdm -y
+
+# 3. Cài đặt desktop environment (nếu chưa có)
+# Chọn một trong các desktop sau:
+
+# Option 1: Raspberry Pi Desktop (mặc định, nhẹ)
+sudo apt install raspberrypi-ui-mods -y
+
+# Option 2: XFCE (nhẹ, ổn định)
+sudo apt install xfce4 xfce4-goodies -y
+
+# Option 3: LXDE (rất nhẹ)
+sudo apt install lxde -y
+
+═══════════════════════════════════════════════════════════════
+BƯỚC 3: CẤU HÌNH LIGHTDM
+═══════════════════════════════════════════════════════════════
+
+# 1. Tạo cấu hình mới
+sudo nano /etc/lightdm/lightdm.conf
+
+# 2. Thêm cấu hình cơ bản:
+[Seat:*]
+autologin-user=leviathan
+autologin-user-timeout=0
+user-session=raspberrypi
+# Hoặc user-session=xfce nếu dùng XFCE
+# Hoặc user-session=LXDE nếu dùng LXDE
+
+# 3. Lưu file (Ctrl+O, Enter, Ctrl+X)
+
+# 4. Cấp quyền cho thư mục
+sudo chown -R lightdm:lightdm /var/lib/lightdm/
+sudo chmod 755 /var/lib/lightdm
+
+═══════════════════════════════════════════════════════════════
+BƯỚC 4: BẬT LIGHTDM
+═══════════════════════════════════════════════════════════════
+
+# 1. Enable lightdm
+sudo systemctl enable lightdm
+
+# 2. Start lightdm
+sudo systemctl start lightdm
+
+# 3. Kiểm tra trạng thái
+sudo systemctl status lightdm
+
+═══════════════════════════════════════════════════════════════
+BƯỚC 5: NẾU VẪN LỖI - KIỂM TRA VÀ SỬA
+═══════════════════════════════════════════════════════════════
+
+# 1. Xem log chi tiết
+sudo journalctl -u lightdm.service -n 50 --no-pager
+sudo cat /var/log/lightdm/lightdm.log | tail -50
+sudo cat /var/log/Xorg.0.log | tail -50
+
+# 2. Kiểm tra màn hình
+for i in /sys/class/drm/card*/status; do echo "$i: $(cat $i)"; done
+
+# 3. Nếu không có màn hình, disable autologin
+sudo nano /etc/lightdm/lightdm.conf
+# Comment dòng: #autologin-user=leviathan
+
+# 4. Nếu vẫn lỗi, thử disable lightdm và dùng VNC
+sudo systemctl disable lightdm
+# Dùng VNC thay thế
+
+═══════════════════════════════════════════════════════════════
+LỆNH NHANH NHẤT (COPY TẤT CẢ):
+═══════════════════════════════════════════════════════════════
+
+# Gỡ cài đặt
+sudo systemctl stop lightdm
+sudo systemctl disable lightdm
+sudo pkill -9 lightdm
+sudo pkill -9 Xorg
+sudo apt remove --purge lightdm -y
+sudo apt autoremove -y
+sudo rm -rf /etc/lightdm/ /var/lib/lightdm/ /var/log/lightdm/
+sudo rm -rf /tmp/.X0-lock /tmp/.X11-unix/
+
+# Cài đặt lại
+sudo apt update
+sudo apt install lightdm raspberrypi-ui-mods -y
+
+# Cấu hình
+sudo mkdir -p /etc/lightdm
+sudo tee /etc/lightdm/lightdm.conf > /dev/null <<EOF
+[Seat:*]
+autologin-user=leviathan
+autologin-user-timeout=0
+user-session=raspberrypi
+EOF
+
+# Bật lại
+sudo chown -R lightdm:lightdm /var/lib/lightdm/
+sudo systemctl enable lightdm
+sudo systemctl start lightdm
+sudo systemctl status lightdm
+
+═══════════════════════════════════════════════════════════════
+LƯU Ý:
+═══════════════════════════════════════════════════════════════
+
+1. Thay "leviathan" bằng username thật của bạn
+2. Nếu không có màn hình kết nối, lightdm sẽ không chạy được
+3. Có thể disable lightdm nếu không cần GUI:
+   sudo systemctl disable lightdm
+4. Nếu chỉ cần VNC, không cần lightdm
+
+═══════════════════════════════════════════════════════════════

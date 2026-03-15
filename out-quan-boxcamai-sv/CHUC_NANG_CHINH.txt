@@ -1,0 +1,393 @@
+================================================================================
+                    HE THONG CAMAI - CAC CHUC NANG CHINH
+                    Tai lieu danh cho Khach hang
+================================================================================
+
+I. NHAN DIEN DOI TUONG BANG AI
+================================================================================
+
+1. Phat hien tu dong 11 loai doi tuong
+   - Nguoi, drone, xe tai, xe may, can cau, gia suc
+   - Cot dien, lua, khoi, dieu, cay coi
+   - Do chinh xac cao voi AI duoc huan luyen chuyen biet
+   - Hoat dong 24/7 tu dong, khong can giam sat thu cong
+   Mo ta chi tiet:
+   - He thong tu dong nhan biet doi tuong tren video tu camera va danh dau bang khung bao.
+   - Moi lan phat hien se luu lai thong tin: doi tuong la gi, do tin cay, thoi gian, vi tri tren khung hinh.
+   - Phu hop cho giam sat an ninh, cong truong, kho bai, nha xuong, khu vuc can canh bao som.
+   - Co the mo rong them camera/diem lap dat ma khong anh huong luong he thong.
+
+2. Xu ly video thoi gian thuc
+   - Doc video truc tiep tu camera IP qua RTSP
+   - Toc do xu ly: 20 FPS (20 khung hinh/giay)
+   - Phat hien moi khung hinh de dam bao khong bo sot
+   - Hien thi khung bao quanh doi tuong va do tin cay
+   Mo ta chi tiet:
+   - Video duoc xu ly lien tuc, hien thi ngay tren web (co khung bao AI).
+   - Nguoi dung xem duoc tinh hinh thuc te theo thoi gian thuc, khong can mo dau ghi.
+   - Khi co su kien, he thong vua canh bao vua luu minh chung de xem lai.
+   - Ho tro on dinh cho camera IP pho bien, phu hop trien khai nhieu diem.
+
+================================================================================
+II. CANH BAO TU DONG
+================================================================================
+
+3. Canh bao qua Email
+   - Tu dong gui email khi phat hien doi tuong trong vung quan tam
+   - Email kem theo hinh anh phat hien
+   - Thong tin day du: loai doi tuong, thoi gian, vi tri, do tin cay
+   - Co the bat/tat tuy y
+   Mo ta chi tiet:
+   - Email se gui den dia chi quan ly/bao ve/ky thuat ngay khi co su kien.
+   - Noi dung ro rang: camera nao, khu vuc nao (ROI), phat hien doi tuong gi, vao luc nao.
+   - Co kem hinh anh minh chung de nhan biet nhanh truoc khi mo xem video.
+   - Thich hop cho thong bao chinh thuc, luu vet, va chuyen tiep cho nhieu nguoi.
+
+4. Canh bao qua Telegram
+   - Gui tin nhan den nhom Telegram khi co phat hien
+   - Tin nhan kem theo hinh anh
+   - Canh bao tuc thi, khong tre
+   - Co the bat/tat tuy y
+   Mo ta chi tiet:
+   - Canh bao den nhom (hoac ca nhan neu can) de nhieu nguoi cung nhan.
+   - Tin nhan gon: ten camera, doi tuong, thoi gian, khu vuc canh bao, kem hinh.
+   - Phu hop canh bao nhanh tren dien thoai, nhan va xu ly ngay.
+   - Co the tach nhom theo dia diem/du an de quan ly de dang.
+
+5. Loc canh bao thong minh
+   - Chi canh bao khi vat di chuyen hoac co vat moi
+   - Khong spam canh bao khi vat dung yen
+   - Uu tien canh bao cho cac doi tuong quan trong (lua, khoi, nguoi...)
+   - Tiet kiem bang thong va giam nhieu
+   Mo ta chi tiet:
+   - Giam canh bao lap lai, tranh lam phien nguoi nhan.
+   - Uu tien su kien quan trong de doi xu ly nhanh (vi du: lua/khoi/nguoi).
+   - Tranh gui qua nhieu tin trong cung 1 tinh huong, giup de theo doi va giam chi phi du lieu.
+   - Tang do tin cay van hanh: canh bao it nhung dung luc.
+
+================================================================================
+III. QUAN LY VUNG QUAN TAM (ROI)
+================================================================================
+
+6. Vung quan tam don gian (Hinh chu nhat)
+   - Chi phat hien doi tuong trong vung duoc chon
+   - Giam canh bao sai tu vung khong quan trong
+   - De dang cau hinh qua giao dien web
+   Mo ta chi tiet:
+   - Chon nhanh 1 vung hinh chu nhat tren khung hinh (vi du: cong ra vao).
+   - He thong chi canh bao khi doi tuong xuat hien trong vung nay.
+   - Giam bao dong do cay coi, duong xa, khu vuc khong lien quan.
+   - Phu hop khoi tao nhanh cho du an can trien khai gap.
+
+7. Vung quan tam da hinh (Polygon)
+   - Ho tro nhieu vung quan tam voi hinh dang tu do
+   - Moi vung co the dat ten rieng (vi du: "Cong chinh", "Bai do xe")
+   - Phu hop voi khu vuc phuc tap, khong phai hinh chu nhat
+   Mo ta chi tiet:
+   - Ve vung theo bien dang thuc te (theo hang rao, loi di, khu vuc nguy hiem).
+   - Co the tao nhieu vung tren 1 camera, dat ten de de quan ly.
+   - Canh bao dung khu vuc can quan tam, giam sai sot so voi hinh chu nhat.
+   - Phu hop cong truong, nha xuong, kho bai co nhieu khu vuc cam/han che.
+
+8. Hien thi vung quan tam
+   - Ve duong vien mau do len video de de nhan biet
+   - Hien thi ten vung (neu co)
+   - Co the bat/tat hien thi tuy y
+   Mo ta chi tiet:
+   - Nguoi xem nhin thay ro ranh gioi khu vuc dang duoc canh bao.
+   - Giup giai thich de dang voi khach hang/bao ve: vi sao canh bao duoc kich hoat.
+   - Tranh cau hinh nham vi tri, de kiem tra nhanh khi lap dat.
+   - Bat/tat tuy nhu cau (khi xem cho lanh dao/khach hang co the tat cho dep).
+
+9. Doi tuong uu tien
+   - Mot so doi tuong co the duoc dat la "uu tien"
+   - Doi tuong uu tien: phat hien o MOI vi tri (khong can trong ROI)
+   - Luon canh bao ngay khi phat hien
+   - Vi du: Lua, khoi, nguoi - luon canh bao du o dau
+   Mo ta chi tiet:
+   - Dam bao khong bo sot su kien nguy cap (lua/khoi) ke ca ngoai ROI.
+   - Uu tien xu ly nhanh: canh bao ngay, giam thoi gian phan ung.
+   - Phu hop bai xe, kho chua, khu vuc co nguy co chay no.
+   - Co the tuy chon danh sach uu tien theo tung du an.
+
+================================================================================
+IV. XEM VIDEO VA GIAM SAT
+================================================================================
+
+10. Xem video truc tiep tren Web
+    - Xem video thoi gian thuc qua trinh duyet
+    - Video da duoc xu ly AI (co khung bao quanh doi tuong)
+    - Chat luong: 25 FPS
+    - Khong can cai dat phan mem, chi can trinh duyet
+    Mo ta chi tiet:
+    - Mo tren may tinh/di dong, chi can dang nhap va chon camera can xem.
+    - Xem duoc dong thoi nhieu camera (tuy cau hinh), chuyen camera nhanh.
+    - Video co khung bao giup nhan biet su kien nhanh hon xem video thuong.
+    - Phu hop phong bao ve/van hanh can giam sat lien tuc.
+
+11. Ghi video tu dong
+    - Tu dong ghi video khi co phat hien
+    - Chia video thanh cac file 30 phut de de quan ly
+    - Luu tru an toan, de dang xem lai sau
+    - Co the bat/tat ghi video tuy y
+    Mo ta chi tiet:
+    - Tu dong tao bang chung video de doi chieu su kien (truy vet sau nay).
+    - File video duoc dat ten theo thoi gian/camera de tra cuu nhanh.
+    - Duy tri video theo chinh sach luu tru (co the don dep theo dung luong).
+    - Phu hop kho bai, cong truong, noi can bang chung khi co su co.
+
+12. Luu tru anh phat hien
+    - Tu dong luu anh khi phat hien doi tuong
+    - Luu kem timestamp chinh xac
+    - De dang tra cuu va xem lai sau
+    - Tu dong xoa anh cu de tiet kiem dung luong
+    Mo ta chi tiet:
+    - Moi canh bao co anh minh chung ro rang (nhin la biet su kien gi).
+    - Anh co thoi gian, loai doi tuong, do tin cay de bao cao va doi chieu.
+    - Danh sach anh duoc luu theo camera/doi tuong de tim kiem nhanh.
+    - Toi uu dung luong: tu dong gioi han so anh luu lai theo thiet lap.
+
+================================================================================
+V. QUAN LY NHIEU CAMERA
+================================================================================
+
+13. Quan ly tap trung nhieu camera
+    - Quan ly nhieu camera tu mot giao dien web
+    - Moi camera co ten va Serial number rieng
+    - De dang phan biet tung vi tri lap dat
+    - Xem trang thai va thong ke cua tung camera
+    Mo ta chi tiet:
+    - Quan ly nhieu diem lap dat trong 1 he thong: cong, kho, nha xuong, bai xe...
+    - Moi camera co thong tin rieng (ten, vi tri, trang thai) de phan quyen va van hanh.
+    - De dang mo rong: them camera moi chi can tao them trong he thong.
+    - Giam chi phi quan ly: tap trung, khong can nhieu phan mem.
+
+14. Cau hinh tu xa
+    - Tat ca cau hinh duoc quan ly qua server web
+    - Khong can truy cap truc tiep vao thiet bi
+    - Thay doi cau hinh co hieu luc ngay lap tuc
+    - Thay doi IP camera, ROI, doi tuong uu tien tu xa
+    Mo ta chi tiet:
+    - Quan ly vien tu xa: sua vung ROI, bat/tat canh bao, doi camera IP... ngay tren web.
+    - Giam thoi gian bao tri: khong can den tan noi de cam man hinh/ban phim.
+    - Phu hop he thong nhieu diem, nhieu tinh/thanh.
+    - Van hanh de dang cho nguoi quan ly (khong can ky thuat sau).
+
+15. Dong bo tu dong
+    - He thong tu dong kiem tra thay doi tu server
+    - Tu dong cap nhat cau hinh khi co thay doi
+    - Dam bao dong bo giua nhieu thiet bi
+    Mo ta chi tiet:
+    - Khi quan ly thay doi cau hinh, thiet bi se tu cap nhat ma khong can thao tac phuc tap.
+    - Tranh tinh trang moi camera 1 kieu, giam loi van hanh.
+    - Duy tri tinh on dinh va nhat quan cho toan bo he thong.
+    - Phu hop trien khai dai han, it can can thiep.
+
+================================================================================
+VI. THONG KE VA BAO CAO
+================================================================================
+
+16. Thong ke real-time
+    - Tong so phat hien theo tung loai doi tuong
+    - Thong ke theo tung camera
+    - So luong phat hien trong 24h qua
+    - So camera dang hoat dong
+    Mo ta chi tiet:
+    - Nhin nhanh tong quan tinh hinh: khu vuc nao nhieu su kien, doi tuong nao xuat hien nhieu.
+    - Ho tro bao cao cho quan ly: so lieu ro rang theo ngay/ca.
+    - Phat hien bat thuong: tang dot bien so canh bao de kiem tra ngay.
+    - Theo doi trang thai hoat dong cua tung camera.
+
+17. Lich su phat hien
+    - Xem lai tat ca cac lan phat hien
+    - Loc theo loai doi tuong, camera, thoi gian
+    - Xem chi tiet tung lan phat hien kem hinh anh
+    - Phan trang de de quan ly
+    Mo ta chi tiet:
+    - Tra cuu su kien cu theo ngay gio de doi chieu khi co phan anh.
+    - Xem lai anh minh chung theo tung lan phat hien.
+    - Ho tro truy vet: biet duoc su kien xay ra luc nao va o camera nao.
+    - Phu hop quan tri van hanh va bao cao noi bo.
+
+18. Tim kiem va loc
+    - Tim kiem theo ten doi tuong
+    - Loc theo camera cu the
+    - Loc theo khoang thoi gian
+    - Xuat du lieu de phan tich
+    Mo ta chi tiet:
+    - Tim nhanh su kien can quan tam (vi du: chi xem "person" trong 1 khoang thoi gian).
+    - Loc theo tung camera/khu vuc de giam nhieu.
+    - Ho tro tong hop so lieu theo thoi gian de danh gia hieu qua giam sat.
+    - Phu hop khi can trich xuat thong tin de lam bao cao.
+
+================================================================================
+VII. GIAO DIEN WEB HIEN DAI
+================================================================================
+
+19. Dashboard truc quan
+    - Giao dien dep, de su dung
+    - Hien thi thong tin tong quan ngay lap tuc
+    - Bieu do thong ke truc quan
+    - Responsive, hoat dong tot tren di dong
+    Mo ta chi tiet:
+    - Trang tong quan de theo doi nhanh toan bo he thong (camera, canh bao, thong ke).
+    - Thao tac don gian: chon camera, xem luong video, xem canh bao.
+    - Phu hop ca may tinh van phong va dien thoai.
+    - Thuan tien cho quan ly va bao ve su dung hang ngay.
+
+20. Quan ly camera
+    - Them, sua, xoa camera de dang
+    - Cau hinh ROI truc tiep tren video
+    - Bat/tat detection cho tung camera
+    - Xem trang thai ket noi cua tung camera
+    Mo ta chi tiet:
+    - Them moi camera/doi ten/doi vi tri de phu hop thuc te lap dat.
+    - Bat/tat phat hien theo tung camera (vi du: tat vao gio nghi).
+    - Kiem tra tinh trang ket noi de xu ly nhanh khi mat tin hieu.
+    - Dieu chinh ROI truc tiep tren khung hinh de dung nhu y.
+
+21. Cau hinh canh bao
+    - Cau hinh email canh bao
+    - Cau hinh Telegram canh bao
+    - Test gui canh bao de kiem tra
+    - Bat/tat tung loai canh bao tuy y
+    Mo ta chi tiet:
+    - Cai dat nguoi nhan canh bao (email/nhom Telegram) theo to chuc.
+    - Test gui canh bao de xac nhan he thong dang hoat dong truoc khi van hanh chinh thuc.
+    - Bat/tat theo nhu cau tung du an (chi bat Telegram, hoac bat ca Email + Telegram).
+    - Duy tri linh hoat: thay doi nguoi nhan bat cu luc nao.
+
+================================================================================
+VIII. BAO MAT VA ON DINH
+================================================================================
+
+22. Ket noi bao mat
+    - Giao tiep voi server qua HTTPS (ma hoa)
+    - Bao ve du lieu truyen tai
+    - Xac thuc thiet bi qua Serial number
+
+23. Hoat dong on dinh
+    - Chay lien tuc 24/7 khong can can thiep
+    - Tu dong xu ly khi mat ket noi camera
+    - Tu dong xu ly khi mat ket noi server
+    - Tu dong phuc hoi khi co su co
+    - Khong bi crash, tiep tuc hoat dong voi cau hinh du phong
+
+24. Toi uu hieu nang
+    - Dieu khien so core CPU su dung
+    - Nen video thong minh de tiet kiem bang thong
+    - Chi gui canh bao khi can thiet
+    - Phu hop voi mang Internet co bang thong han che
+
+================================================================================
+IX. TICH HOP VA MO RONG
+================================================================================
+
+25. API tich hop
+    - Du lieu detection duoc gui len server qua API
+    - De dang tich hop voi he thong khac
+    - Ho tro GPS coordinates (neu co)
+
+26. Luu tru du lieu
+    - Tu dong luu anh phat hien
+    - Metadata day du (thoi gian, vi tri, loai doi tuong)
+    - De dang tra cuu va phan tich sau
+    - Database SQLite de dang backup
+
+================================================================================
+X. UNG DUNG THUC TE
+================================================================================
+
+27. Giam sat an ninh
+    - Phat hien nguoi xam nhap
+    - Canh bao khi co nguoi la
+    - Ghi lai bang chung tu dong
+    - Giam sat 24/7 khong can nhan luc
+
+28. Phat hien chay no
+    - Phat hien lua va khoi
+    - Canh bao som de xu ly kip thoi
+    - Uu tien cao nhat, canh bao ngay lap tuc
+    - Giam sat lien tuc khong ngung nghi
+
+29. Giam sat giao thong
+    - Dem xe tai, xe may
+    - Phan tich luu luong giao thong
+    - Phat hien phuong tien bat thuong
+    - Thong ke mat do giao thong
+
+30. Giam sat nong nghiep
+    - Phat hien gia suc
+    - Theo doi cay trong
+    - Phat hien sau benh, thien tai
+    - Giam sat tu dong, tiet kiem cong suc
+
+31. Giam sat cong nghiep
+    - Phat hien can cau, thiet bi
+    - Giam sat an toan lao dong
+    - Phat hien su co bat thuong
+    - Giam sat lien tuc, dam bao an toan
+
+================================================================================
+XI. LOI ICH CHO KHACH HANG
+================================================================================
+
+32. Tiet kiem chi phi
+    - Tu dong hoa, giam nhan luc giam sat
+    - Chi canh bao khi can thiet, tiet kiem bang thong
+    - Hoat dong 24/7 khong can nghi
+    - Giam chi phi nhan su giam sat
+
+33. Tang hieu qua
+    - Phat hien nhanh, chinh xac
+    - Canh bao tuc thi qua web, email, Telegram
+    - De dang xem lai lich su
+    - Giam thieu thoi gian phan hoi
+
+34. De su dung
+    - Cau hinh qua web, khong can kien thuc ky thuat
+    - Tu dong dong bo, khong can can thiep
+    - Giao dien truc quan, de hieu
+    - Huong dan chi tiet, ho tro ky thuat
+
+35. Linh hoat va mo rong
+    - Ho tro nhieu loai camera IP
+    - De dang them camera moi
+    - Quan ly tap trung nhieu vi tri
+    - Co the mo rong theo nhu cau
+
+36. Do tin cay cao
+    - Hoat dong on dinh, it loi
+    - Tu dong phuc hoi khi co su co
+    - Ho tro ky thuat chuyen nghiep
+    - Cap nhat va cai tien lien tuc
+
+================================================================================
+TONG KET
+================================================================================
+
+He thong CamAI cung cap giai phap nhan dien doi tuong thong minh, tu dong hoa
+hoan toan voi cac tinh nang:
+
+- Nhan dien AI chinh xac 11 loai doi tuong
+- Canh bao tu dong qua Email va Telegram
+- Quan ly vung quan tam linh hoat
+- Xem video truc tiep tren web
+- Ghi video tu dong
+- Quan ly tap trung nhieu camera
+- Thong ke va bao cao chi tiet
+- Giao dien web hien dai, de su dung
+- Hoat dong on dinh 24/7
+- Tich hop de dang voi he thong hien co
+
+Ung dung rong rai trong:
+- An ninh, giam sat
+- Phat hien chay no
+- Giao thong, logistics
+- Nong nghiep
+- Cong nghiep
+
+Phien ban: CamAI v1.0
+Ngay cap nhat: 2024-12-24
+
+================================================================================

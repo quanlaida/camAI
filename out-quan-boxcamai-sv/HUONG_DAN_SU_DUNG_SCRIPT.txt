@@ -1,0 +1,217 @@
+═══════════════════════════════════════════════════════════════════════════
+    HƯỚNG DẪN SỬ DỤNG CÁC SCRIPT TIỆN ÍCH - CamAI Server
+═══════════════════════════════════════════════════════════════════════════
+
+📋 DANH SÁCH SCRIPT:
+───────────────────────────────────────────────────────────────────────────
+  1. fix_database.py          - Fix database bị corrupt
+  2. clear_all_data.py        - Xóa sạch tất cả dữ liệu (giữ lại clients)
+
+═══════════════════════════════════════════════════════════════════════════
+1. SCRIPT: fix_database.py
+═══════════════════════════════════════════════════════════════════════════
+
+📌 MỤC ĐÍCH:
+   Sửa lỗi database bị corrupt (hư hỏng) khi gặp lỗi:
+   "sqlite3.DatabaseError: database disk image is malformed"
+
+🚀 CÁCH SỬ DỤNG:
+───────────────────────────────────────────────────────────────────────────
+   Bước 1: Mở PowerShell/CMD và vào thư mục server
+   
+   cd E:\CAM_AI_server\camAI\out-quan-boxcamai-sv
+   
+   Bước 2: Chạy script
+   
+   python fix_database.py
+   
+   Bước 3: Script sẽ tự động:
+   ✅ Backup file detections.db cũ (nếu có thể)
+   ✅ Xóa file detections.db bị corrupt
+   ✅ Tạo lại database mới với cấu trúc đầy đủ
+   
+   Bước 4: Chạy lại server
+   
+   python server.py
+   
+   Bước 5: Tạo lại client trên web (nếu database mới)
+   - Vào: http://localhost:5000
+   - Tab "Clients" → "Add New Client"
+   - Nhập Serial Number của máy client
+   - Lưu lại
+
+⚠️ LƯU Ý:
+   - Database mới sẽ TRỐNG (không có dữ liệu cũ)
+   - Nếu có file detections.db từ máy khác, copy vào thư mục này để khôi phục
+   - File backup sẽ có tên: detections_backup_YYYYMMDD_HHMMSS.db
+
+═══════════════════════════════════════════════════════════════════════════
+2. SCRIPT: clear_all_data.py
+═══════════════════════════════════════════════════════════════════════════
+
+📌 MỤC ĐÍCH:
+   Xóa sạch tất cả dữ liệu để bắt đầu lại từ đầu:
+   - Xóa tất cả detections
+   - Xóa tất cả ảnh trong captured_images/
+   - Xóa tất cả video trong recordings/
+   - GIỮ LẠI clients (không xóa)
+
+🚀 CÁCH SỬ DỤNG:
+───────────────────────────────────────────────────────────────────────────
+   Bước 1: Mở PowerShell/CMD và vào thư mục server
+   
+   cd E:\CAM_AI_server\camAI\out-quan-boxcamai-sv
+   
+   Bước 2: Chạy script
+   
+   python clear_all_data.py
+   
+   Bước 3: Script sẽ tự động xóa:
+   ✅ Tất cả detections trong database
+   ✅ Tất cả ảnh trong captured_images/
+   ✅ Tất cả video trong recordings/
+   ℹ️ GIỮ LẠI clients (không cần tạo lại)
+   
+   Bước 4: Chạy lại server
+   
+   python server.py
+   
+   Bước 5: Hệ thống sẽ bắt đầu lưu dữ liệu mới
+
+⚠️ LƯU Ý:
+   - Script sẽ hiển thị số lượng file/record trước khi xóa
+   - Clients được GIỮ LẠI, không cần tạo lại
+   - Dữ liệu cũ sẽ bị XÓA VĨNH VIỄN (không thể khôi phục)
+
+═══════════════════════════════════════════════════════════════════════════
+KHI NÀO DÙNG SCRIPT NÀO?
+═══════════════════════════════════════════════════════════════════════════
+
+🔧 Dùng fix_database.py khi:
+   ✅ Gặp lỗi "database disk image is malformed"
+   ✅ Database bị corrupt, không thể mở được
+   ✅ Server không khởi động được do lỗi database
+   → Script sẽ tạo lại database mới (trống)
+
+🧹 Dùng clear_all_data.py khi:
+   ✅ Muốn xóa sạch tất cả detections và ảnh/video cũ
+   ✅ Muốn bắt đầu lại từ đầu nhưng giữ lại clients
+   ✅ Giải phóng dung lượng ổ cứng
+   → Script sẽ xóa dữ liệu nhưng giữ lại clients
+
+═══════════════════════════════════════════════════════════════════════════
+VÍ DỤ SỬ DỤNG
+═══════════════════════════════════════════════════════════════════════════
+
+📝 VÍ DỤ 1: Database bị corrupt
+───────────────────────────────────────────────────────────────────────────
+   PS E:\CAM_AI_server\camAI\out-quan-boxcamai-sv> python fix_database.py
+   
+   ============================================================
+   🔧 FIX DATABASE CORRUPT - CamAI Server
+   ============================================================
+   
+   📦 Đang backup detections.db thành detections_backup_20250116_143022.db...
+   ✅ Đã backup thành công!
+   🗑️ Đang xóa file detections.db bị corrupt...
+   ✅ Đã xóa file cũ!
+   
+   🔨 Đang tạo lại database mới...
+   ✅ Đã tạo lại database thành công!
+   
+   ✅ HOÀN TẤT!
+   
+   📋 LƯU Ý QUAN TRỌNG:
+      ⚠️ Database mới đã được tạo, nhưng CHƯA CÓ DỮ LIỆU!
+   
+   📝 BƯỚC TIẾP THEO:
+      1. Chạy server: python server.py
+      2. Vào web interface: http://localhost:5000
+      3. Tab 'Clients' → Click 'Add New Client'
+      4. Nhập Serial Number của máy client (ví dụ: 202500000)
+      5. Lưu lại
+
+───────────────────────────────────────────────────────────────────────────
+
+📝 VÍ DỤ 2: Xóa sạch dữ liệu
+───────────────────────────────────────────────────────────────────────────
+   PS E:\CAM_AI_server\camAI\out-quan-boxcamai-sv> python clear_all_data.py
+   
+   ============================================================
+   🧹 XÓA SẠCH TẤT CẢ DỮ LIỆU - CamAI Server
+   ============================================================
+   
+   ⚠️ CẢNH BÁO: Script này sẽ xóa:
+      • Tất cả detections trong database
+      • Tất cả ảnh trong captured_images/
+      • Tất cả video trong recordings/
+      • ℹ️ Clients sẽ được GIỮ LẠI
+   
+   ============================================================
+   🚀 BẮT ĐẦU XÓA DỮ LIỆU...
+   ============================================================
+   
+   🗑️ Đang xóa tất cả detections trong database...
+      📊 Tìm thấy 1523 detections
+      ✅ Đã xóa 1523 detections!
+   
+   🗑️ Đang xóa tất cả ảnh trong captured_images...
+      📊 Tìm thấy 1523 file ảnh
+      ✅ Đã xóa 1523 file ảnh!
+   
+   🗑️ Đang xóa tất cả video trong recordings...
+      📊 Tìm thấy 45 file video (1234.56 MB)
+      ✅ Đã xóa 45 file video!
+   
+   ============================================================
+   ✅ HOÀN TẤT!
+   ============================================================
+   
+   📋 ĐÃ XÓA:
+      ✅ Tất cả detections
+      ✅ Tất cả ảnh trong captured_images/
+      ✅ Tất cả video trong recordings/
+      ℹ️ Clients được giữ lại
+   
+   💡 BƯỚC TIẾP THEO:
+      1. Chạy server: python server.py
+      2. Hệ thống sẽ bắt đầu lưu dữ liệu mới
+
+═══════════════════════════════════════════════════════════════════════════
+XỬ LÝ LỖI THƯỜNG GẶP
+═══════════════════════════════════════════════════════════════════════════
+
+❌ Lỗi: "ModuleNotFoundError: No module named 'database_setup'"
+   → Nguyên nhân: Chưa vào đúng thư mục hoặc thiếu dependencies
+   → Giải pháp: 
+      cd E:\CAM_AI_server\camAI\out-quan-boxcamai-sv
+      pip install -r requirements.txt
+
+❌ Lỗi: "Permission denied" khi xóa file
+   → Nguyên nhân: File đang được sử dụng bởi server
+   → Giải pháp: Dừng server trước khi chạy script (Ctrl+C)
+
+❌ Lỗi: "database disk image is malformed" khi chạy clear_all_data.py
+   → Nguyên nhân: Database đã bị corrupt
+   → Giải pháp: Chạy fix_database.py trước, sau đó mới chạy clear_all_data.py
+
+═══════════════════════════════════════════════════════════════════════════
+LƯU Ý QUAN TRỌNG
+═══════════════════════════════════════════════════════════════════════════
+
+⚠️ BACKUP TRƯỚC KHI XÓA:
+   - Luôn backup file detections.db trước khi chạy script
+   - Copy file detections.db sang vị trí an toàn
+   - Hoặc dùng file backup tự động (detections_backup_*.db)
+
+⚠️ DỪNG SERVER TRƯỚC KHI CHẠY SCRIPT:
+   - Nhấn Ctrl+C để dừng server
+   - Đảm bảo không có process nào đang sử dụng database
+   - Sau đó mới chạy script
+
+⚠️ SAU KHI CHẠY SCRIPT:
+   - Luôn chạy lại server: python server.py
+   - Kiểm tra web interface hoạt động bình thường
+   - Nếu dùng fix_database.py, nhớ tạo lại client trên web
+
+═══════════════════════════════════════════════════════════════════════════

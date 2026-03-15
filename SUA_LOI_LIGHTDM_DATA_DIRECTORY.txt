@@ -1,0 +1,88 @@
+═══════════════════════════════════════════════════════════════
+SỬA LỖI: Could not enumerate user data directory
+═══════════════════════════════════════════════════════════════
+
+📌 LỖI:
+───────────────────────────────────────────────────────────────
+Could not enumerate user data directory /var/lib/lightdm/data: 
+Error opening directory
+
+→ Lightdm đang chạy nhưng thiếu thư mục data
+
+═══════════════════════════════════════════════════════════════
+CÁCH SỬA:
+═══════════════════════════════════════════════════════════════
+
+BƯỚC 1: TẠO THƯ MỤC DATA
+───────────────────────────────────────────────────────────────
+
+# Tạo thư mục data
+sudo mkdir -p /var/lib/lightdm/data
+
+# Cấp quyền
+sudo chown -R lightdm:lightdm /var/lib/lightdm/
+sudo chmod 755 /var/lib/lightdm/data
+
+BƯỚC 2: KIỂM TRA LẠI
+───────────────────────────────────────────────────────────────
+
+# Restart lightdm
+sudo systemctl restart lightdm
+
+# Kiểm tra trạng thái
+sudo systemctl status lightdm
+
+# Xem log
+sudo journalctl -u lightdm.service -n 20 --no-pager
+
+═══════════════════════════════════════════════════════════════
+KIỂM TRA LIGHTDM HOẠT ĐỘNG:
+═══════════════════════════════════════════════════════════════
+
+1. KIỂM TRA TRẠNG THÁI:
+───────────────────────────────────────────────────────────────
+sudo systemctl status lightdm
+
+# Nên thấy: Active: active (running)
+
+2. KIỂM TRA X SERVER:
+───────────────────────────────────────────────────────────────
+ps aux | grep Xorg
+
+# Nên thấy process Xorg đang chạy
+
+3. KIỂM TRA LOG:
+───────────────────────────────────────────────────────────────
+sudo cat /var/log/lightdm/lightdm.log | tail -20
+sudo cat /var/log/Xorg.0.log | tail -20
+
+# Tìm lỗi nếu có
+
+4. KIỂM TRA VNC (NẾU CẦN):
+───────────────────────────────────────────────────────────────
+# Nếu đã cài VNC, thử kết nối từ xa
+# Xem process VNC:
+ps aux | grep vnc
+
+═══════════════════════════════════════════════════════════════
+LỆNH NHANH NHẤT:
+═══════════════════════════════════════════════════════════════
+
+# Sửa lỗi data directory
+sudo mkdir -p /var/lib/lightdm/data
+sudo chown -R lightdm:lightdm /var/lib/lightdm/
+sudo chmod 755 /var/lib/lightdm/data
+
+# Restart và kiểm tra
+sudo systemctl restart lightdm
+sudo systemctl status lightdm
+
+═══════════════════════════════════════════════════════════════
+LƯU Ý:
+═══════════════════════════════════════════════════════════════
+
+- Lỗi này không nghiêm trọng, lightdm vẫn có thể chạy
+- Nhưng nên sửa để tránh cảnh báo
+- Nếu lightdm đã chạy tốt, có thể bỏ qua
+
+═══════════════════════════════════════════════════════════════
